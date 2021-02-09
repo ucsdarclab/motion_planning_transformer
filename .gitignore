@@ -1,1 +1,10 @@
+# 3rd party files
 vision_transformer/**
+
+# Jupyter notebooks
+.ipynb_checkpoints/**
+*.ipynb
+
+
+**/__pycache__/**
+
