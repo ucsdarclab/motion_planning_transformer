@@ -1,0 +1,10 @@
+FROM cuda10-ompl
+
+COPY requirements.txt /root/.
+WORKDIR /root
+RUN apt-get update && apt-get install -y git
+RUN pip3 install -r requirements.txt
+
+RUN pip3 install scikit-image
+WORKDIR /root/global_planner
+CMD [bash]

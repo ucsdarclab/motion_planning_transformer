@@ -1,0 +1,8 @@
+GPy==1.9.9
+pybullet==2.8.1
+-e git+https://github.com/benelot/pybullet-gym.git@55eaa0defca7f4ae382963885a334c952133829d#egg=pybulletgym
+scipy==1.3.1
+seaborn==0.10.1
+pandas==1.0.5
+numpy==1.19.0
+plotly==4.8.1
