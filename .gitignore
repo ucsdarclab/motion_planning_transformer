@@ -1,5 +1,6 @@
-# 3rd party files
+\# 3rd party files
 vision_transformer/**
+vit-pytorch/**
 
 # Jupyter notebooks
 .ipynb_checkpoints/**
