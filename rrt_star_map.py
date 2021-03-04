@@ -9,7 +9,7 @@ from skimage import color
 import pickle
 
 try:
-    img = io.imread('map_1.png')
+    img = io.imread('/root/global_planner_data/env4/map_4.png')
 except FileNotFoundError:
     raise NameError("Did not find the file, please generate the map")
 
@@ -31,7 +31,6 @@ img_g = color.rgb2gray(color.rgba2rgb(img))
 invert_img_g = np.abs(1-img_g)
 invert_img_g_dilate = skim.dilation(invert_img_g, skim.disk(robot_radius/dist_resl))
 img_g_dilate = np.abs(1-invert_img_g_dilate)
-
 
 
 def geom2pix(pos, res=0.05, size=(480, 480)):
@@ -148,7 +147,7 @@ def start_experiment_rrt(start, samples):
         path_param['path_interpolated'] = path_interpolated
         path_param['success'] = success
 
-        pickle.dump(path_param, open('/root/global_planner_data/path_{}.p'.format(i), 'wb'))
+        pickle.dump(path_param, open('/root/global_planner_data/env4/path_{}.p'.format(i), 'wb'))
 
 
 
