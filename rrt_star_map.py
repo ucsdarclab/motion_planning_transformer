@@ -9,7 +9,7 @@ from skimage import color
 import pickle
 
 try:
-    img = io.imread('/root/global_planner_data/env4/map_4.png')
+    img = io.imread('/root/global_planner_data/env5/map_5.png')
 except FileNotFoundError:
     raise NameError("Did not find the file, please generate the map")
 
@@ -147,7 +147,7 @@ def start_experiment_rrt(start, samples):
         path_param['path_interpolated'] = path_interpolated
         path_param['success'] = success
 
-        pickle.dump(path_param, open('/root/global_planner_data/env4/path_{}.p'.format(i), 'wb'))
+        pickle.dump(path_param, open('/root/global_planner_data/env5/path_{}.p'.format(i), 'wb'))
 
 
 
