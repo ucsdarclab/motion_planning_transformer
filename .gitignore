@@ -1,4 +1,7 @@
-\# 3rd party files
+# Cache files
+.vscode
+
+# 3rd party files
 vision_transformer/**
 vit-pytorch/**
 
@@ -9,3 +12,4 @@ vit-pytorch/**
 
 **/__pycache__/**
 
+*.png
