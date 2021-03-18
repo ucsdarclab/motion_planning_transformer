@@ -171,7 +171,7 @@ if __name__ == "__main__":
     map_size = (480, 480)
     patch_size = 32
     stride = 8
-
+    num_points = (map_size[0]-patch_size)//stride + 1
     transformer = Models.Transformer(
         map_res=0.05,
         map_size=map_size,
@@ -184,7 +184,7 @@ if __name__ == "__main__":
         d_inner=1024,
         pad_idx=None,
         dropout=0.1,
-        n_classes=((map_size[0]-patch_size)//stride)**2
+        n_classes=(num_points)**2 
     ).to(device=device)
 
     # Define the optimizer
