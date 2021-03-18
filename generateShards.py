@@ -30,7 +30,7 @@ def geom2pix(pos, res=0.05, size=(480, 480)):
     return (np.int(size[0]-1-np.floor(pos[1]/res)), np.int(np.floor(pos[0]/res)))
 
 
-num_points = (map_size[0]-patch_size)//stride
+num_points = (map_size[0]-patch_size)//stride + 1
 discrete_points = np.linspace(0.05*(patch_size//2), 24-0.05*(patch_size//2), num_points)
 grid_2d = np.meshgrid(discrete_points, discrete_points)
 grid_points = np.reshape(np.array(grid_2d), (2, -1)).T
