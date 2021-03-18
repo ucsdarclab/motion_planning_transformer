@@ -230,7 +230,7 @@ if __name__ == "__main__":
         val_total_loss, val_n_correct = eval_epoch(transformer, validationData, device)
         print(f"Epoch {n} Loss: {train_total_loss}")
         print(f"Epoch {n} Loss: {val_total_loss}")
-        print(f"Epoch {n} Accuracy {val_n_correct/val_num_samples}")
+        print(f"Epoch {n} Accuracy {val_n_correct/(batch_size*val_num_batches)}")
 
         # Log data.
         train_loss.append(train_total_loss)
@@ -258,4 +258,4 @@ if __name__ == "__main__":
         writer.add_scalar('Loss/train', train_total_loss, n)
         writer.add_scalar('Loss/test', val_total_loss, n)
         writer.add_scalar('Accuracy/train', train_n_correct/(batch_size*train_num_batches), n)
-        writer.add_scalar('Accuracy/train', val_n_correct/(batch_size*val_num_batches), n)
+        writer.add_scalar('Accuracy/test', val_n_correct/(batch_size*val_num_batches), n)
