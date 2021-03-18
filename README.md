@@ -12,10 +12,12 @@
 1. ~~Get model accuracy also~~
 1. Models to implement.
 	1. ~~Adding label smoothing.~~
-	2. Using convoution networks for the decoder instead of fully connected networks.
+	2. ~~Using convoution networks for the patch encoding instead of fuly connected networks.~~
+	3. Check number of prediction classes.
+	3. Position encoding of decoder patches.
 4. ~~Training Planning model.~~
 	1. ~~Using the model to decode plan.~~
-3. Add mixed precision training, and check for improvements.
 4. Visualize the self-attention among the patches.
 4. Adding position encoding to the decoder inputs
 	1. Save the current model to github.
+3. Add mixed precision training (after stable model)
