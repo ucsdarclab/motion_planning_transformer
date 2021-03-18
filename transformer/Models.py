@@ -73,9 +73,17 @@ class Encoder(nn.Module):
         # Convert the image to and input embedding.
         # NOTE: This is one place where we can add convolution networks.
         # Convert the image to linear model
+
         self.to_patch_embedding = nn.Sequential(
-            Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=patch_size, p2=patch_size),
-            nn.Linear(2*patch_size**2, d_model)
+            Rearrange('b c (h p1) (w p2) -> (b h w) c p1 p2', p1=patch_size, p2=patch_size),
+            nn.Conv2d(2, 6, kernel_size=4),
+            nn.MaxPool2d(kernel_size=2),
+            nn.ReLU(),
+            nn.Conv2d(6, 16, kernel_size=4),
+            nn.MaxPool2d(kernel_size=2),
+            nn.ReLU(),
+            Rearrange('(b h w) c p1 p2 -> b (h w) (c p1 p2)', h=15, w=15),
+            nn.Linear(25*16, d_model)
         )
 
         # Position Encoding.
@@ -126,8 +134,14 @@ class Decoder(nn.Module):
         '''
         super().__init__()
         self.to_patch_embedding = nn.Sequential(
-            Rearrange('b pad p1 p2 -> b pad (p1 p2)', pad=1, p1=patch_size, p2=patch_size),
-            nn.Linear(patch_size**2, d_model)
+            nn.Conv2d(1, 6, kernel_size=4),
+            nn.MaxPool2d(kernel_size=2),
+            nn.ReLU(),
+            nn.Conv2d(6, 16, kernel_size=4),
+            nn.MaxPool2d(kernel_size=2),
+            nn.ReLU(),
+            Rearrange('(b pad) k p1 p2 -> b pad (k p1 p2)', pad=1), # this is done to ensure compatibility with the Key/Value pair of the decoder
+            nn.Linear(25*16, d_model)
         )
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList(
