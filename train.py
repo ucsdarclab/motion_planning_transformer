@@ -217,13 +217,13 @@ if __name__ == "__main__":
     validationData = DataLoader(valDataset, num_workers=1, batch_size=batch_size)
 
     # Increase number of epochs.
-    n_epochs = 150
+    n_epochs = 100
     results = {}
     train_loss = []
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/model2'
+    trainDataFolder  = '/root/data/model3'
     writer = SummaryWriter(log_dir=trainDataFolder)
     for n in range(n_epochs):
         train_total_loss, train_n_correct = train_wds_epoch(transformer, trainingData, optimizer, device)
