@@ -200,7 +200,7 @@ if __name__ == "__main__":
     # shard_num = 0
     total_shards=50
     # Select random shards
-    shard_list = np.random.choice(range(180), size=total_shards, replace=False)
+    shard_list = np.random.choice(range(100), size=total_shards, replace=False)
     shard_files = [f'/root/data/train2/train2_{shard_num:04d}.tar' for shard_num in shard_list]
     dataset = wds.Dataset(shard_files).decode(
         png_decoder, 
