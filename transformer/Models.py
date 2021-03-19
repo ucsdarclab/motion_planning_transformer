@@ -13,16 +13,20 @@ from einops.layers.torch import Rearrange
 class PositionalEncoding(nn.Module):
     '''Positional encoding
     '''
-    def __init__(self, d_hid, n_position=200):
+    def __init__(self, d_hid, n_position=200, patch_size=32, stride=8, n_cols=57):
         '''
         Intialize the Encoder.
-        :param d_hid:
-        :param n_position:
+        :param d_hid: Dimesion of the attention features.
+        :param n_position: Number of positions to consider.
+        :param patch_size: Size of each window
+        :param stride: Number of pixels to skip.
         '''
         super(PositionalEncoding, self).__init__()
 
         # Not a parameter
+        skip = patch_size//stride # Number of position to skip
         self.register_buffer('pos_table', self._get_sinusoid_encoding_table(n_position, d_hid))
+        self.register_buffer('pos_table_map', self._get_sinusoid_encoding_map(n_cols, skip))
 
     def _get_sinusoid_encoding_table(self, n_position, d_hid):
         '''
@@ -39,16 +43,29 @@ class PositionalEncoding(nn.Module):
         sinusoid_table = np.array([get_position_angle_vec(pos_i) for pos_i in range(n_position)])
         sinusoid_table[:, 0::2] = np.sin(sinusoid_table[:, 0::2])  # dim 2i
         sinusoid_table[:, 1::2] = np.cos(sinusoid_table[:, 1::2])  # dim 2i+1
+        return torch.FloatTensor(sinusoid_table).unsqueeze(1)
 
-        return torch.FloatTensor(sinusoid_table).unsqueeze(0)
+    def _get_sinusoid_encoding_map(self, n_cols, skip):
+        '''
+        Sinusoid position encoding table for the encoder map.
+        :param n_cols: Number of columns on the grid.
+        :param skip: Number of indexes to skip.
+        '''
+        index_positions = [c+n_cols*r for r in range(n_cols, step=skip) for c in range(n_cols, step=skip)]
+        index_positions = torch.LongTensor(index_positions)
+        map_sinusoid_table = torch.index_select(self.pos_table, dim=0, index_positions).squeeze()
+        return map_sinusoid_table[None, :]
 
-    def forward(self, x):
+    def forward(self, x, index=None):
         '''
         Callback function
         :param x:
         '''
-        return x + self.pos_table[:, :x.size(1)].clone().detach()
-
+        if index is None:
+            return x + self.pos_table_map[:, :x.size(1)].clone().detach()
+        
+        position_encoding = torch.index_select(self.pos_table, dim=0, index=index)
+        return x + position_encoding.clone().detach()
 
 
 class Encoder(nn.Module):
