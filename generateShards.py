@@ -51,7 +51,7 @@ def geom2pixMat(pos, res=0.05, size=(480, 480)):
 if __name__ == "__main__":
     shard_num, start, samples = int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])
     rootFolder = '/root/data/'
-    dataType = 'train2'
+    dataType = 'train'
 
     sink = wds.TarWriter(osp.join(rootFolder, dataType, f'{dataType}_{shard_num:04d}.tar'))
     # Form the paths as shards from each dataset.
@@ -93,6 +93,7 @@ if __name__ == "__main__":
                             '__key__':f'samples_{count:08d}',
                             'goal_map.png': goal_map,
                             'input_patch.png': inputs,
+                            'cur_index.cls':seq,
                             'map.cls': env,
                             'target.cls':target
                         }
