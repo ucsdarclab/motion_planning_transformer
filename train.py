@@ -171,7 +171,7 @@ if __name__ == "__main__":
     map_size = (480, 480)
     patch_size = 32
     stride = 8
-    num_points = (map_size[0]-patch_stride)//stride + 1
+    num_points = (map_size[0]-patch_size)//stride + 1
     transformer = Models.Transformer(
         map_res=0.05,
         map_size=map_size,
@@ -184,7 +184,7 @@ if __name__ == "__main__":
         d_inner=1024,
         pad_idx=None,
         dropout=0.1,
-        n_classes=num_points**2
+        n_classes=(num_points)**2 
     ).to(device=device)
 
     # Define the optimizer
@@ -217,20 +217,20 @@ if __name__ == "__main__":
     validationData = DataLoader(valDataset, num_workers=1, batch_size=batch_size)
 
     # Increase number of epochs.
-    n_epochs = 150
+    n_epochs = 100
     results = {}
     train_loss = []
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/model2'
+    trainDataFolder  = '/root/data/model3'
     writer = SummaryWriter(log_dir=trainDataFolder)
     for n in range(n_epochs):
         train_total_loss, train_n_correct = train_wds_epoch(transformer, trainingData, optimizer, device)
         val_total_loss, val_n_correct = eval_epoch(transformer, validationData, device)
         print(f"Epoch {n} Loss: {train_total_loss}")
         print(f"Epoch {n} Loss: {val_total_loss}")
-        print(f"Epoch {n} Accuracy {val_n_correct/val_num_samples}")
+        print(f"Epoch {n} Accuracy {val_n_correct/(batch_size*val_num_batches)}")
 
         # Log data.
         train_loss.append(train_total_loss)
@@ -258,4 +258,4 @@ if __name__ == "__main__":
         writer.add_scalar('Loss/train', train_total_loss, n)
         writer.add_scalar('Loss/test', val_total_loss, n)
         writer.add_scalar('Accuracy/train', train_n_correct/(batch_size*train_num_batches), n)
-        writer.add_scalar('Accuracy/train', val_n_correct/(batch_size*val_num_batches), n)
+        writer.add_scalar('Accuracy/test', val_n_correct/(batch_size*val_num_batches), n)
