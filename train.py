@@ -74,7 +74,7 @@ def train_wds_epoch(model, trainingData, optimizer, device):
     total_n_correct = 0
     # Train for a single epoch.
     for batch in tqdm(islice(trainingData, train_num_batches), mininterval=2, total=train_num_batches):
-        obs_goal, map_list, input_patches, targets = batch
+        obs_goal, map_list, input_patches, cur_index, targets = batch
         # Normalize inputs
         obs_goal = gs_norm(obs_goal.float())
         input_patches = gs_norm(input_patches.float())
@@ -88,7 +88,8 @@ def train_wds_epoch(model, trainingData, optimizer, device):
         batch_maps = torch.cat([batch_maps[:, None, :], obs_goal[:, None, :]], dim=1)
         batch_maps = batch_maps.to(device)
         batch_inputs = (input_patches[:, None, :]).to(device)
-        pred = model(batch_maps, batch_inputs)
+        cur_index = cur_index.to(device)
+        pred = model(batch_maps, batch_inputs, cur_index)
         batch_targets = targets.long().to(device)
 
         # Calculate the cross-entropy loss
@@ -116,7 +117,7 @@ def eval_epoch(model, validationData, device):
     total_n_correct = 0.0
     with torch.no_grad():
         for batch in tqdm(islice(validationData, val_num_batches), mininterval=2, total=val_num_batches):
-            obs_goal, map_list, input_patches, targets = batch
+            obs_goal, map_list, input_patches, cur_index, targets = batch
             
             obs_goal = gs_norm(obs_goal.float())
             input_patches = gs_norm(input_patches.float())
@@ -129,7 +130,8 @@ def eval_epoch(model, validationData, device):
             batch_maps = batch_maps.to(device)
 
             batch_inputs = (input_patches[:, None, :]).to(device)
-            pred = model(batch_maps, batch_inputs)
+            cur_index = cur_index.to(device)
+            pred = model(batch_maps, batch_inputs, cur_index)
 
             batch_targets = targets.long().to(device)
             # NOTE : Need not do label smoothing for evaluation
@@ -184,7 +186,8 @@ if __name__ == "__main__":
         d_inner=1024,
         pad_idx=None,
         dropout=0.1,
-        n_classes=(num_points)**2 
+        n_classes=(num_points)**2,
+        stride=stride
     ).to(device=device)
 
     # Define the optimizer
@@ -204,7 +207,7 @@ if __name__ == "__main__":
     shard_files = [f'/root/data/train2/train2_{shard_num:04d}.tar' for shard_num in shard_list]
     dataset = wds.Dataset(shard_files).decode(
         png_decoder, 
-        cls_decoder).shuffle(100).to_tuple('goal_map.png', 'map.cls', 'input_patch.png', 'target.cls') 
+        cls_decoder).shuffle(100).to_tuple('goal_map.png', 'map.cls', 'input_patch.png', 'cur_index.cls', 'target.cls') 
 
     trainingData = DataLoader(dataset, num_workers=25, batch_size=batch_size)
 
@@ -212,7 +215,7 @@ if __name__ == "__main__":
     val_shard_files = [f'/root/data/val/val/val_{shard_num:04d}.tar' for shard_num in range(1)]
     valDataset = wds.Dataset(val_shard_files).decode(
         png_decoder,
-        cls_decoder).shuffle(100).to_tuple('goal_map.png', 'map.cls', 'input_patch.png', 'target.cls')
+        cls_decoder).shuffle(100).to_tuple('goal_map.png', 'map.cls', 'input_patch.png', 'cur_index.cls', 'target.cls')
 
     validationData = DataLoader(valDataset, num_workers=1, batch_size=batch_size)
 
