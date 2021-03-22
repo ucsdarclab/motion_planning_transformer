@@ -204,7 +204,7 @@ if __name__ == "__main__":
     total_shards=50
     # Select random shards
     shard_list = np.random.choice(range(100), size=total_shards, replace=False)
-    shard_files = [f'/root/data/train2/train2_{shard_num:04d}.tar' for shard_num in shard_list]
+    shard_files = [f'/root/data/train/train_{shard_num:04d}.tar' for shard_num in shard_list]
     dataset = wds.Dataset(shard_files).decode(
         png_decoder, 
         cls_decoder).shuffle(100).to_tuple('goal_map.png', 'map.cls', 'input_patch.png', 'cur_index.cls', 'target.cls') 
@@ -212,12 +212,13 @@ if __name__ == "__main__":
     trainingData = DataLoader(dataset, num_workers=25, batch_size=batch_size)
 
     # Validation Data
-    val_shard_files = [f'/root/data/val/val/val_{shard_num:04d}.tar' for shard_num in range(1)]
+    val_shards = 5
+    val_shard_files = [f'/root/data/val/val/val_{shard_num:04d}.tar' for shard_num in range(val_shards)]
     valDataset = wds.Dataset(val_shard_files).decode(
         png_decoder,
         cls_decoder).shuffle(100).to_tuple('goal_map.png', 'map.cls', 'input_patch.png', 'cur_index.cls', 'target.cls')
 
-    validationData = DataLoader(valDataset, num_workers=1, batch_size=batch_size)
+    validationData = DataLoader(valDataset, num_workers=5, batch_size=batch_size)
 
     # Increase number of epochs.
     n_epochs = 100
@@ -226,7 +227,7 @@ if __name__ == "__main__":
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/model3'
+    trainDataFolder  = '/root/data/model4'
     writer = SummaryWriter(log_dir=trainDataFolder)
     for n in range(n_epochs):
         train_total_loss, train_n_correct = train_wds_epoch(transformer, trainingData, optimizer, device)
