@@ -17,55 +17,35 @@ from tqdm import tqdm
 from os import path as osp
 
 from transformer import Models, Optim
-from dataLoader import PathIterDataset
+from dataLoaderv2 import PathDataLoaderv2, PaddedSequence
 from utils import png_decoder, cls_decoder
 import webdataset as wds
 
 from torch.utils.tensorboard import SummaryWriter
 
-def cost_function(predVal, trueLabel, smoothing=False):
-    '''
-    Calculate the cost between predicted output and true labels
-    :param predVal: The output of the linear model function.
-    :param trueLabel: The true class of the data.
-    :param smoothing: Apply smoothing to the data.
-    '''
-    if smoothing:
-        eps = 0.1
-        n_class = predVal.size(1)
 
-        one_hot = torch.zeros_like(predVal).scatter(1, trueLabel.view(-1, 1), 1)
-        one_hot = one_hot*(1-eps) + (1-one_hot)*eps/(n_class-1)
-        log_prob = F.log_softmax(predVal, dim=1)
-        return -(one_hot*log_prob).sum(dim=1).mean()
-    return F.cross_entropy(predVal, trueLabel)
-
-
-def cal_performance(predVal, trueLabel, smoothing=False):
+def cal_performance(predVals, anchorPoints, trueLabels, lengths):
     '''
     Return the loss and number of correct predictions.
-    :param predVal: the output of the final linear layer.
-    :param trueLabel: The expected class.
-    :param smoothing: If True, do calculate smooth label loss.
-    :returns (loss, n_correct): The loss of the model and number of correct predictions.
+    :param predVals: the output of the final linear layer.
+    :param anchorPoints: The anchor points of interest
+    :param trueLabels: The expected clas of the corresponding anchor points.
+    :param lengths: The legths of each of sequence in the batch
+    :returns (loss, n_correct): The loss of the model and number of avg predictions.
     '''
-    loss = cost_function(predVal, trueLabel, smoothing)
+    n_correct = 0
+    total_loss = 0
+    for predVal, anchorPoint, trueLabel, length in zip(predVals, anchorPoints, trueLabels, lengths):
+        predVal = predVal.index_select(0, anchorPoint[:length])
+        loss = F.cross_entropy(predVal, trueLabel[:length])
+        total_loss += loss
+        classPred = predVal.max(1)[1]
+        n_correct +=classPred.eq(trueLabel[:length]).sum().item()/length
+    return total_loss, n_correct
 
-    predVal = predVal.max(1)[1]
-    n_correct = predVal.eq(trueLabel).sum().item()
-    return loss, n_correct
+batch_size = 64
 
-
-batch_size = 256
-gs_norm = Normalize([0]*batch_size, [255.0]*batch_size)
-train_num_samples = 2e5
-train_num_batches = int(train_num_samples//batch_size)
-
-from itertools import islice
-
-maps = [skimage.io.imread(f'/root/data/env{env}/map_{env}.png', as_gray=True) for env in [1, 2, 3, 4, 5]]
-
-def train_wds_epoch(model, trainingData, optimizer, device):
+def train_epoch(model, trainingData, optimizer, device):
     '''
     Train the model for 1-epoch with data from wds
     '''
@@ -73,36 +53,24 @@ def train_wds_epoch(model, trainingData, optimizer, device):
     total_loss = 0
     total_n_correct = 0
     # Train for a single epoch.
-    for batch in tqdm(islice(trainingData, train_num_batches), mininterval=2, total=train_num_batches):
-        obs_goal, map_list, input_patches, cur_index, targets = batch
-        # Normalize inputs
-        obs_goal = gs_norm(obs_goal.float())
-        input_patches = gs_norm(input_patches.float())
-
+    for batch in tqdm(trainingData, mininterval=2):
+        
         optimizer.zero_grad()
-        # When map has to be stacked.
-        batch_maps  = torch.zeros_like(obs_goal)
-        for i in range(targets.shape[0]):
-            batch_maps[i, :, :] = torch.as_tensor(maps[map_list[i]-1])
-
-        batch_maps = torch.cat([batch_maps[:, None, :], obs_goal[:, None, :]], dim=1)
-        batch_maps = batch_maps.to(device)
-        batch_inputs = (input_patches[:, None, :]).to(device)
-        cur_index = cur_index.to(device)
-        pred = model(batch_maps, batch_inputs, cur_index)
-        batch_targets = targets.long().to(device)
+        encoder_input = batch['map'].float().to(device)
+        predVal = model(encoder_input)
 
         # Calculate the cross-entropy loss
-        loss, n_correct = cal_performance(pred, batch_targets, smoothing=True)
-
+        loss, n_correct = cal_performance(
+            predVal, batch['anchor'].to(device), 
+            batch['labels'].to(device), 
+            batch['length'].to(device)
+        )
         loss.backward()
         optimizer.step_and_update_lr()
         total_loss +=loss.item()
         total_n_correct += n_correct
     return total_loss, total_n_correct
 
-val_num_samples = 4000
-val_num_batches = int(val_num_samples//batch_size)
 
 def eval_epoch(model, validationData, device):
     '''
@@ -116,51 +84,23 @@ def eval_epoch(model, validationData, device):
     total_loss = 0.0
     total_n_correct = 0.0
     with torch.no_grad():
-        for batch in tqdm(islice(validationData, val_num_batches), mininterval=2, total=val_num_batches):
-            obs_goal, map_list, input_patches, cur_index, targets = batch
-            
-            obs_goal = gs_norm(obs_goal.float())
-            input_patches = gs_norm(input_patches.float())
+        for batch in tqdm(validationData, mininterval=2):
 
-            # Stack maps.
-            batch_maps  = torch.zeros_like(obs_goal)
-            for i in range(targets.shape[0]):
-                batch_maps[i, :, :] = torch.as_tensor(maps[map_list[i]-1])
-            batch_maps = torch.cat([batch_maps[:, None, :], obs_goal[:, None, :]], dim=1)
-            batch_maps = batch_maps.to(device)
+            encoder_input = batch['map'].float().to(device)
+            predVal = model(encoder_input)
 
-            batch_inputs = (input_patches[:, None, :]).to(device)
-            cur_index = cur_index.to(device)
-            pred = model(batch_maps, batch_inputs, cur_index)
-
-            batch_targets = targets.long().to(device)
-            # NOTE : Need not do label smoothing for evaluation
-            loss, n_correct = cal_performance(pred, batch_targets, smoothing=False)
+            loss, n_correct = cal_performance(
+                predVal, 
+                batch['anchor'].to(device), 
+                batch['labels'].to(device),
+                batch['length'].to(device)
+            )
 
             total_loss +=loss.item()
             total_n_correct += n_correct
     return total_loss, total_n_correct
 
 
-def check_data():
-    '''
-    Check if all data is properly formatted.
-    '''
-    shard_num=0
-    shard_file = f'/root/data/train/train_{shard_num:04d}.tar'
-    dataset = wds.WebDataset(shard_file).decode(
-        png_decoder, 
-        cls_decoder)
-
-    for data_i in tqdm(dataset, total=200):
-        if 'target.cls' not in data_i.keys():
-            print(data_i['__key__'])
-
-
-# if __name__ == "__main__":
-#     check_data()
-
-# if False:
 if __name__ == "__main__":
     device = 'cpu'
     if torch.cuda.is_available():
@@ -170,24 +110,16 @@ if __name__ == "__main__":
     torch_seed = np.random.randint(low=0, high=1000)
     torch.manual_seed(torch_seed)
 
-    map_size = (480, 480)
-    patch_size = 32
-    stride = 8
-    num_points = (map_size[0]-patch_size)//stride + 1
     transformer = Models.Transformer(
-        map_res=0.05,
-        map_size=map_size,
-        patch_size=patch_size,
-        n_layers=2,
-        n_heads=3,
-        d_k=64,
-        d_v=64,
-        d_model=256,
-        d_inner=1024,
+        n_layers=2, 
+        n_heads=3, 
+        d_k=512, 
+        d_v=256, 
+        d_model=512, 
+        d_inner=1024, 
         pad_idx=None,
-        dropout=0.1,
-        n_classes=(num_points)**2,
-        stride=stride
+        n_position=40*40, 
+        dropout=0.1
     ).to(device=device)
 
     # Define the optimizer
@@ -201,24 +133,12 @@ if __name__ == "__main__":
 
     # Training Data
     # shard_num = 0
-    total_shards=50
-    # Select random shards
-    shard_list = np.random.choice(range(100), size=total_shards, replace=False)
-    shard_files = [f'/root/data/train/train_{shard_num:04d}.tar' for shard_num in shard_list]
-    dataset = wds.Dataset(shard_files).decode(
-        png_decoder, 
-        cls_decoder).shuffle(100).to_tuple('goal_map.png', 'map.cls', 'input_patch.png', 'cur_index.cls', 'target.cls') 
-
-    trainingData = DataLoader(dataset, num_workers=25, batch_size=batch_size)
+    trainDataset = PathDataLoaderv2([1, 2, 3, 4, 5], samples=5000, dataFolder='/root/data')
+    trainingData = DataLoader(trainDataset, num_workers=20, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Validation Data
-    val_shards = 5
-    val_shard_files = [f'/root/data/val/val/val_{shard_num:04d}.tar' for shard_num in range(val_shards)]
-    valDataset = wds.Dataset(val_shard_files).decode(
-        png_decoder,
-        cls_decoder).shuffle(100).to_tuple('goal_map.png', 'map.cls', 'input_patch.png', 'cur_index.cls', 'target.cls')
-
-    validationData = DataLoader(valDataset, num_workers=5, batch_size=batch_size)
+    valDataset = PathDataLoaderv2([1, 2, 3, 4, 5], samples=500, dataFolder='/root/data/val')
+    validationData = DataLoader(valDataset, num_workers=5, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Increase number of epochs.
     n_epochs = 100
@@ -227,14 +147,14 @@ if __name__ == "__main__":
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/model4'
+    trainDataFolder  = '/root/data/model5'
     writer = SummaryWriter(log_dir=trainDataFolder)
     for n in range(n_epochs):
-        train_total_loss, train_n_correct = train_wds_epoch(transformer, trainingData, optimizer, device)
+        train_total_loss, train_n_correct = train_epoch(transformer, trainingData, optimizer, device)
         val_total_loss, val_n_correct = eval_epoch(transformer, validationData, device)
         print(f"Epoch {n} Loss: {train_total_loss}")
         print(f"Epoch {n} Loss: {val_total_loss}")
-        print(f"Epoch {n} Accuracy {val_n_correct/(batch_size*val_num_batches)}")
+        print(f"Epoch {n} Accuracy {val_n_correct/len(valDataset)}")
 
         # Log data.
         train_loss.append(train_total_loss)
@@ -261,5 +181,5 @@ if __name__ == "__main__":
             )
         writer.add_scalar('Loss/train', train_total_loss, n)
         writer.add_scalar('Loss/test', val_total_loss, n)
-        writer.add_scalar('Accuracy/train', train_n_correct/(batch_size*train_num_batches), n)
-        writer.add_scalar('Accuracy/test', val_n_correct/(batch_size*val_num_batches), n)
+        writer.add_scalar('Accuracy/train', train_n_correct/len(trainDataset), n)
+        writer.add_scalar('Accuracy/test', val_n_correct/len(valDataset), n)

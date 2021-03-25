@@ -9,24 +9,21 @@ import torch.nn as nn
 from transformer.Layers import EncoderLayer, DecoderLayer
 
 from einops.layers.torch import Rearrange
+from einops import rearrange
 
 class PositionalEncoding(nn.Module):
     '''Positional encoding
     '''
-    def __init__(self, d_hid, n_position=200, patch_size=32, stride=8, n_cols=57):
+    def __init__(self, d_hid, n_position=200):
         '''
         Intialize the Encoder.
         :param d_hid: Dimesion of the attention features.
         :param n_position: Number of positions to consider.
-        :param patch_size: Size of each window
-        :param stride: Number of pixels to skip.
         '''
         super(PositionalEncoding, self).__init__()
 
         # Not a parameter
-        skip = patch_size//stride # Number of position to skip
         self.register_buffer('pos_table', self._get_sinusoid_encoding_table(n_position, d_hid))
-        self.register_buffer('pos_table_map', self._get_sinusoid_encoding_map(n_cols, skip))
 
     def _get_sinusoid_encoding_table(self, n_position, d_hid):
         '''
@@ -43,38 +40,23 @@ class PositionalEncoding(nn.Module):
         sinusoid_table = np.array([get_position_angle_vec(pos_i) for pos_i in range(n_position)])
         sinusoid_table[:, 0::2] = np.sin(sinusoid_table[:, 0::2])  # dim 2i
         sinusoid_table[:, 1::2] = np.cos(sinusoid_table[:, 1::2])  # dim 2i+1
-        return torch.FloatTensor(sinusoid_table).unsqueeze(1)
+        return torch.FloatTensor(sinusoid_table[None,:])
 
-    def _get_sinusoid_encoding_map(self, n_cols, skip):
-        '''
-        Sinusoid position encoding table for the encoder map.
-        :param n_cols: Number of columns on the grid.
-        :param skip: Number of indexes to skip.
-        '''
-        index_positions = [c+n_cols*r for r in range(0, n_cols, skip) for c in range(0, n_cols, skip)]
-        index_positions = torch.LongTensor(index_positions)
-        map_sinusoid_table = torch.index_select(self.pos_table, dim=0, index=index_positions).squeeze()
-        return map_sinusoid_table[None, :]
-
-    def forward(self, x, index=None):
+    def forward(self, x):
         '''
         Callback function
         :param x:
         '''
-        if index is None:
-            return x + self.pos_table_map[:, :x.size(1)].clone().detach()
-        position_encoding = torch.index_select(self.pos_table, dim=0, index=index)
-        return x + position_encoding.clone().detach()
+        return x + self.pos_table[:, :x.size(1)].clone().detach()
 
 
 class Encoder(nn.Module):
     ''' The encoder of the planner.
     '''
 
-    def __init__(self, patch_size, n_layers, n_heads, d_k, d_v, d_model, d_inner, pad_idx, dropout, n_position, stride):
+    def __init__(self, n_layers, n_heads, d_k, d_v, d_model, d_inner, pad_idx, dropout, n_position):
         '''
         Intialize the encoder.
-        :param patch_size: Dimension of each patch/word.
         :param n_layers: Number of layers of attention and fully connected layer.
         :param n_heads: Number of self attention modules.
         :param d_k: Dimension of each Key.
@@ -84,7 +66,6 @@ class Encoder(nn.Module):
         :param pad_idx: TODO ....
         :param dropout: The value to the dropout argument.
         :param n_position: Total number of patches the model can handle.
-        :param stride: Number of skips to perform.
         '''
         super().__init__()
         # Convert the image to and input embedding.
@@ -92,26 +73,19 @@ class Encoder(nn.Module):
         # Convert the image to linear model
 
         self.to_patch_embedding = nn.Sequential(
-            Rearrange('b c (h p1) (w p2) -> (b h w) c p1 p2', p1=patch_size, p2=patch_size),
-            nn.Conv2d(2, 6, kernel_size=4),
+            nn.Conv2d(2, 6, kernel_size=5),
             nn.MaxPool2d(kernel_size=2),
             nn.ReLU(),
-            nn.Conv2d(6, 16, kernel_size=4),
+            nn.Conv2d(6, 16, kernel_size=5),
             nn.MaxPool2d(kernel_size=2),
             nn.ReLU(),
-            Rearrange('(b h w) c p1 p2 -> b (h w) (c p1 p2)', h=15, w=15),
-            nn.Linear(25*16, d_model)
+            nn.Conv2d(16, d_model, kernel_size=5, stride=5),
+            Rearrange('b c h w -> b (h w) c'),
         )
 
         # Position Encoding.
         # NOTE: Current setup for adding position encoding after patch Embedding.
-        self.position_enc = PositionalEncoding(
-            d_model, 
-            n_position=n_position, 
-            patch_size=patch_size, 
-            stride=8,
-            n_cols=int(np.sqrt(n_position)) 
-            )
+        self.position_enc = PositionalEncoding(d_model, n_position=n_position)
 
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList([
@@ -208,12 +182,9 @@ class Decoder(nn.Module):
 class Transformer(nn.Module):
     ''' A Transformer module
     '''
-    def __init__(self, map_res, map_size, patch_size,  n_layers, n_heads, d_k, d_v, d_model, d_inner, pad_idx, dropout, n_classes, stride):
+    def __init__(self, n_layers, n_heads, d_k, d_v, d_model, d_inner, pad_idx, dropout, n_position):
         '''
         Initialize the Transformer model.
-        :param map_res: The distance(m) per pixel.
-        :param map_size: A tuple of map size.
-        :param patch_size: Dimension of each patch/word.
         :param n_layers: Number of layers of attention and fully connected layers
         :param n_heads: Number of self attention modules.
         :param d_k: Dimension of each Key.
@@ -222,16 +193,11 @@ class Transformer(nn.Module):
         :param d_inner: Dimension of the hidden layers of position wise FFN1
         :param pad_idx: TODO ......
         :param dropout: The value of the dropout argument.
-        :param n_classes: Number of points on the grid.
+        :param n_position: Dim*dim of the maximum map size.
         '''
         super().__init__()
-        self.map_res = map_res
-        self.map_size = map_size
-        self.patch_size = patch_size
-        
-        n_position=(map_size[0]//patch_size)**2
+
         self.encoder = Encoder(
-            patch_size=patch_size,
             n_layers=n_layers, 
             n_heads=n_heads, 
             d_k=d_k, 
@@ -240,24 +206,15 @@ class Transformer(nn.Module):
             d_inner=d_inner, 
             pad_idx=pad_idx, 
             dropout=dropout, 
-            n_position=n_classes,
-            stride=stride
-        )
-        self.decoder = Decoder(
-            patch_size=patch_size,
-            n_layers=n_layers, 
-            n_heads=n_heads, 
-            d_k=d_k , 
-            d_v=d_v, 
-            d_model=d_model, 
-            d_inner=d_inner, 
-            pad_idx=pad_idx, 
-            n_position=n_classes,
-            stride=stride,
-            dropout=dropout
+            n_position=n_position,
         )
 
-        self.goal_prj = nn.Linear(d_model, n_classes+1, bias=False)
+        # Last linear layer for prediction
+        self.classPred = nn.Sequential(
+            Rearrange('b c d_model -> (b c) d_model 1 1'),
+            nn.Conv2d(512, 2, kernel_size=1),
+            Rearrange('bc d 1 1 -> bc d')
+        )
 
     def _getGeom2Pix(self, pos):
         '''
@@ -269,7 +226,7 @@ class Transformer(nn.Module):
         return (np.int(self.map_size[0]-1-np.floor(pos[1]/self.map_res)), np.int(np.floor(pos[0]/self.map_res)))
 
 
-    def forward(self, input_map, cur_patch, cur_index):
+    def forward(self, input_map):
         '''
         The callback function.
         :param input_map:
@@ -277,17 +234,7 @@ class Transformer(nn.Module):
         :param start: A 2D torch array representing the start.
         :param cur_index: The current anchor point of patch.
         '''
-        # goal_map = torch.new_zeros(input_map.shape, device=input_map.device)
-        # goal_index = self._getGeom2Pix(goal)
-        # goal_start_x = max(0, goal_index[0]-self.patch_size//2)
-        # goal_start_y = max(0, goal_index[1]-self.patch_size//2)
-        # goal_end_x = min(self.map_size[0], goal_index[0]+self.patch_size//2)
-        # goal_end_y = min(self.map_size[1], goal_index[1]+self.patch_size//2)
-        # goal_map[goal_start_x:goal_end_x, goal_start_y:goal_end_y] = 1.0
-
-        # map_goal = torch.cat((input_map, goal_map))
         enc_output, *_ = self.encoder(input_map)
-        dec_output, *_ = self.decoder(cur_patch, cur_index, enc_output)
-        seq_logit = self.goal_prj(dec_output)
-
-        return seq_logit.view(-1, seq_logit.size(2))
+        seq_logit = self.classPred(enc_output)
+        batch_size = input_map.shape[0]
+        return rearrange(seq_logit, '(b c) d -> b c d', b=batch_size)
