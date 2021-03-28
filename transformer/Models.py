@@ -14,16 +14,27 @@ from einops import rearrange
 class PositionalEncoding(nn.Module):
     '''Positional encoding
     '''
-    def __init__(self, d_hid, n_position=200):
+    def __init__(self, d_hid, n_position, train_shape):
         '''
         Intialize the Encoder.
         :param d_hid: Dimesion of the attention features.
         :param n_position: Number of positions to consider.
+        :param train_shape: The 2D shape of the training model.
         '''
         super(PositionalEncoding, self).__init__()
 
         # Not a parameter
+        self.register_buffer('hashIndex', self._get_hash_table(n_position))
         self.register_buffer('pos_table', self._get_sinusoid_encoding_table(n_position, d_hid))
+        self.register_buffer('pos_table_train', self._get_sinusoid_encoding_table_train(n_position, train_shape))
+
+    def _get_hash_table(self, n_position):
+        '''
+        A simple table converting 1D indexes to 2D grid.
+        :param n_position: The number of positions on the grid.
+        ''' 
+
+        return rearrange(torch.arange(n_position), '(h w) -> h w', h=int(np.sqrt(n_position)), w=int(np.sqrt(n_position)))
 
     def _get_sinusoid_encoding_table(self, n_position, d_hid):
         '''
@@ -41,20 +52,37 @@ class PositionalEncoding(nn.Module):
         sinusoid_table[:, 0::2] = np.sin(sinusoid_table[:, 0::2])  # dim 2i
         sinusoid_table[:, 1::2] = np.cos(sinusoid_table[:, 1::2])  # dim 2i+1
         return torch.FloatTensor(sinusoid_table[None,:])
+    
+    def _get_sinusoid_encoding_table_train(self, n_position, train_shape):
+        '''
+        The encoding table to use for training.
+        NOTE: It is assumed that all training data comes from a fixed map.
+        NOTE: Another assumption that is made is that the training maps are square.
+        :param n_position: The maximum number of positions on the table.
+        :param train_shape: The 2D dimension of the training maps.
+        '''
+        selectIndex = rearrange(self.hashIndex[:train_shape[0], :train_shape[1]], 'h w -> (h w)')
+        return torch.index_select(self.pos_table, dim=1, index=selectIndex)
 
-    def forward(self, x):
+    def forward(self, x, conv_shape=None):
         '''
         Callback function
         :param x:
         '''
-        return x + self.pos_table[:, :x.size(1)].clone().detach()
+        if conv_shape is None:
+            return x + self.pos_table_train.clone().detach()
+
+        # assert x.shape[0]==1, "Only valid for testing single image sizes"
+        selectIndex = rearrange(self.hashIndex[:conv_shape[0], :conv_shape[1]], 'h w -> (h w)')
+        return x + torch.index_select(self.pos_table, dim=1, index=selectIndex)
+
 
 
 class Encoder(nn.Module):
     ''' The encoder of the planner.
     '''
 
-    def __init__(self, n_layers, n_heads, d_k, d_v, d_model, d_inner, pad_idx, dropout, n_position):
+    def __init__(self, n_layers, n_heads, d_k, d_v, d_model, d_inner, pad_idx, dropout, n_position, train_shape):
         '''
         Intialize the encoder.
         :param n_layers: Number of layers of attention and fully connected layer.
@@ -66,6 +94,7 @@ class Encoder(nn.Module):
         :param pad_idx: TODO ....
         :param dropout: The value to the dropout argument.
         :param n_position: Total number of patches the model can handle.
+        :param train_shape: The shape of the output of the patch encodings.
         '''
         super().__init__()
         # Convert the image to and input embedding.
@@ -79,13 +108,13 @@ class Encoder(nn.Module):
             nn.Conv2d(6, 16, kernel_size=5),
             nn.MaxPool2d(kernel_size=2),
             nn.ReLU(),
-            nn.Conv2d(16, d_model, kernel_size=5, stride=5),
-            Rearrange('b c h w -> b (h w) c'),
+            nn.Conv2d(16, d_model, kernel_size=5, stride=5)
         )
 
+        self.reorder_dims = Rearrange('b c h w -> b (h w) c')
         # Position Encoding.
         # NOTE: Current setup for adding position encoding after patch Embedding.
-        self.position_enc = PositionalEncoding(d_model, n_position=n_position)
+        self.position_enc = PositionalEncoding(d_model, n_position=n_position, train_shape=train_shape)
 
         self.dropout = nn.Dropout(p=dropout)
         self.layer_stack = nn.ModuleList([
@@ -98,12 +127,20 @@ class Encoder(nn.Module):
 
     def forward(self, input_map):
         '''
-        The input of the Encoder should be of dim (b, c, (h, patch_size), (w, patch_size)).
+        The input of the Encoder should be of dim (b, c, h, w).
         :param input_map: The input map for planning.
         :param goal: TODO ....
         '''
         enc_output = self.to_patch_embedding(input_map)
-        enc_output = self.dropout(self.position_enc(enc_output))
+        conv_map_shape = enc_output.shape[-2:]
+        enc_output = self.reorder_dims(enc_output)
+
+        if self.training:
+            enc_output = self.position_enc(enc_output)
+        else:
+            enc_output = self.position_enc(enc_output, conv_map_shape)
+    
+        enc_output = self.dropout(enc_output)
         enc_output = self.layer_norm(enc_output)
 
         for enc_layer in self.layer_stack:
@@ -182,7 +219,7 @@ class Decoder(nn.Module):
 class Transformer(nn.Module):
     ''' A Transformer module
     '''
-    def __init__(self, n_layers, n_heads, d_k, d_v, d_model, d_inner, pad_idx, dropout, n_position):
+    def __init__(self, n_layers, n_heads, d_k, d_v, d_model, d_inner, pad_idx, dropout, n_position, train_shape):
         '''
         Initialize the Transformer model.
         :param n_layers: Number of layers of attention and fully connected layers
@@ -194,6 +231,7 @@ class Transformer(nn.Module):
         :param pad_idx: TODO ......
         :param dropout: The value of the dropout argument.
         :param n_position: Dim*dim of the maximum map size.
+        :param train_shape: The shape of the output of the patch encodings. 
         '''
         super().__init__()
 
@@ -207,6 +245,7 @@ class Transformer(nn.Module):
             pad_idx=pad_idx, 
             dropout=dropout, 
             n_position=n_position,
+            train_shape=train_shape
         )
 
         # Last linear layer for prediction
