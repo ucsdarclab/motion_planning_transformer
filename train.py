@@ -121,7 +121,12 @@ if __name__ == "__main__":
         n_position=40*40, 
         dropout=0.1,
         train_shape=[24, 24],
-    ).to(device=device)
+    )
+    
+    if torch.cuda.device_count() > 1:
+        print("Using ", torch.cuda.device_count(), "GPUs")
+        transformer = nn.DataParallel(transformer)
+    transformer.to(device=device)
 
     # Define the optimizer
     # TODO: What does these parameters do ???
