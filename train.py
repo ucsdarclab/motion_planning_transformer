@@ -12,6 +12,7 @@ import skimage.io
 
 from torchvision.transforms import Normalize
 from torch.utils.data import DataLoader
+import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 from os import path as osp
