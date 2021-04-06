@@ -141,7 +141,7 @@ if __name__ == "__main__":
     # Training Data
     # shard_num = 0
     trainDataset = PathDataLoaderv2([1, 2, 3, 4, 5], samples=5000, dataFolder='/root/data')
-    trainingData = DataLoader(trainDataset, num_workers=20, batch_size=batch_size, collate_fn=PaddedSequence)
+    trainingData = DataLoader(trainDataset, num_workers=10, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Validation Data
     valDataset = PathDataLoaderv2([1, 2, 3, 4, 5], samples=800, dataFolder='/root/data/val')
