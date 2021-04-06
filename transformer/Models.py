@@ -101,8 +101,10 @@ class Encoder(nn.Module):
         # NOTE: This is one place where we can add convolution networks.
         # Convert the image to linear model
 
+        # NOTE: Padding of 8 is added to the initial layer to ensure that 
+        # the output of the network has receptive field across the entire map.
         self.to_patch_embedding = nn.Sequential(
-            nn.Conv2d(2, 6, kernel_size=5),
+            nn.Conv2d(2, 6, kernel_size=5, padding=8),
             nn.MaxPool2d(kernel_size=2),
             nn.ReLU(),
             nn.Conv2d(6, 16, kernel_size=5),

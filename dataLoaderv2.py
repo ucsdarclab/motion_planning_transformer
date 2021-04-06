@@ -42,12 +42,12 @@ def geom2pix(pos, res=0.05, size=(480, 480)):
 
 
 # Convert Anchor points to points on the axis.
-X = np.arange(15, 23*20+15, 20)*res
-Y = 24-np.arange(15, 23*20+15, 20)*res
+X = np.arange(15, 24*20+15, 20)*res
+Y = 24-np.arange(15, 24*20+15, 20)*res
 
 grid_2d = np.meshgrid(X, Y)
 grid_points = rearrange(grid_2d, 'c h w->(h w) c')
-hashTable = [(20*r+15, 20*c+15) for c in range(23) for r in range(23)]
+hashTable = [(20*r+15, 20*c+15) for c in range(24) for r in range(24)]
 
 def geom2pixMatpos(pos, res=0.05, size=(480, 480)):
     """

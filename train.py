@@ -120,7 +120,7 @@ if __name__ == "__main__":
         pad_idx=None,
         n_position=40*40, 
         dropout=0.1,
-        train_shape=[23, 23],
+        train_shape=[24, 24],
     ).to(device=device)
 
     # Define the optimizer
