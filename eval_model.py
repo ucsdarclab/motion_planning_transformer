@@ -73,7 +73,7 @@ def get_encoder_input(InputMap, goal_pos, start_pos):
 
 
 receptive_field = 32
-hashTable = [(20*r+15, 20*c+15) for c in range(23) for r in range(23)]
+hashTable = [(20*r+4, 20*c+4) for c in range(24) for r in range(24)]
 
 
 class ValidityChecker(ob.StateValidityChecker):
