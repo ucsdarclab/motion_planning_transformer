@@ -125,12 +125,13 @@ class Encoder(nn.Module):
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         
 
-    def forward(self, input_map):
+    def forward(self, input_map, returns_attns=False):
         '''
         The input of the Encoder should be of dim (b, c, h, w).
         :param input_map: The input map for planning.
-        :param goal: TODO ....
+        :param returns_attns: If True, the model returns slf_attns at each layer
         '''
+        enc_slf_attn_list = []
         enc_output = self.to_patch_embedding(input_map)
         conv_map_shape = enc_output.shape[-2:]
         enc_output = self.reorder_dims(enc_output)
@@ -144,9 +145,12 @@ class Encoder(nn.Module):
         enc_output = self.layer_norm(enc_output)
 
         for enc_layer in self.layer_stack:
-            enc_output, _ = enc_layer(enc_output, slf_attn_mask=None)
+            enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=None)
+            enc_slf_attn_list += [enc_slf_attn] if returns_attns else []
         
-        return enc_output, _
+        if returns_attns:
+            return enc_output, enc_slf_attn_list
+        return enc_output, 
 
 
 class Decoder(nn.Module):
