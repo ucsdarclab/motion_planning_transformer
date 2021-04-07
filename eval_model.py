@@ -75,7 +75,6 @@ def get_encoder_input(InputMap, goal_pos, start_pos):
 receptive_field = 32
 hashTable = [(20*r+4, 20*c+4) for c in range(24) for r in range(24)]
 
-
 class ValidityChecker(ob.StateValidityChecker):
     '''A class to check if an obstacle is in collision or not.
     '''
@@ -192,8 +191,10 @@ def get_patch(model, start_pos, goal_pos, input_map):
         patch_map[goal_start_y:goal_end_y, goal_start_x:goal_end_x] = 1.0
     return patch_map
 
-        
+device='cuda' if torch.cuda.is_available() else 'cpu'
+import sys    
 if __name__=="__main__":
+    env_num = int(sys.argv[1])
     transformer = Models.Transformer(
         n_layers=2, 
         n_heads=3, 
@@ -203,17 +204,19 @@ if __name__=="__main__":
         d_inner=1024, 
         pad_idx=None,
         n_position=40*40,
-        train_shape=[23, 23], # NOTE: This is hard coded value.
+        train_shape=[24, 24], # NOTE: This is hard coded value.
         dropout=0.1
-    ).cuda()
+    )
+
+    transformer.to(device)
+
     receptive_field=32
     # Load model parameters
     epoch = 149
-    modelFolder = '/root/data/model6/'
+    modelFolder = '/root/data/model7/'
     checkpoint = torch.load(osp.join(modelFolder, f'model_epoch_{epoch}.pkl'))
     transformer.load_state_dict(checkpoint['state_dict'])
 
-    env_num=1
     temp_map =  f'/root/data/env{env_num}/map_{env_num}.png'
     small_map = skimage.io.imread(temp_map, as_gray=True)
 
@@ -251,5 +254,5 @@ if __name__=="__main__":
         else:
             PathSuccess.append(False)
 
-    pickle.dump(PathSuccess, open(f'/root/data/model6/eval_plan_env{env_num}.p', 'wb'))
+    pickle.dump(PathSuccess, open(f'/root/data/model7/eval_plan_env{env_num}.p', 'wb'))
     print(sum(PathSuccess))
