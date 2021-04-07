@@ -170,8 +170,12 @@ if __name__ == "__main__":
         val_n_correct_list.append(val_n_correct)
 
         if (n+1)%5==0:
+            if isinstance(transformer, nn.DataParallel):
+                state_dict = transformer.module.state_dict()
+            else:
+                state_dict = transformer.state_dict()
             states = {
-                'state_dict': transformer.state_dict(),
+                'state_dict': state_dict,
                 'optimizer': optimizer._optimizer.state_dict(),
                 'torch_seed': torch_seed
             }
