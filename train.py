@@ -44,7 +44,7 @@ def cal_performance(predVals, anchorPoints, trueLabels, lengths):
         n_correct +=classPred.eq(trueLabel[:length]).sum().item()/length
     return total_loss, n_correct
 
-batch_size = 64 * 4
+batch_size = 60 * 4
 
 def train_epoch(model, trainingData, optimizer, device):
     '''
