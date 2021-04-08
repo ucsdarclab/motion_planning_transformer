@@ -44,7 +44,7 @@ def cal_performance(predVals, anchorPoints, trueLabels, lengths):
         n_correct +=classPred.eq(trueLabel[:length]).sum().item()/length
     return total_loss, n_correct
 
-batch_size = 50 * 4
+batch_size = 40 * 4
 
 def train_epoch(model, trainingData, optimizer, device):
     '''
@@ -113,7 +113,7 @@ if __name__ == "__main__":
 
     transformer = Models.Transformer(
         n_layers=2, 
-        n_heads=4, 
+        n_heads=5, 
         d_k=512, 
         d_v=256, 
         d_model=512, 
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/model8'
+    trainDataFolder  = '/root/data/model9'
     writer = SummaryWriter(log_dir=trainDataFolder)
     for n in range(n_epochs):
         train_total_loss, train_n_correct = train_epoch(transformer, trainingData, optimizer, device)
