@@ -197,7 +197,7 @@ if __name__=="__main__":
     env_num = int(sys.argv[1])
     transformer = Models.Transformer(
         n_layers=2, 
-        n_heads=3, 
+        n_heads=6, 
         d_k=512, 
         d_v=256, 
         d_model=512, 
@@ -213,7 +213,7 @@ if __name__=="__main__":
     receptive_field=32
     # Load model parameters
     epoch = 149
-    modelFolder = '/root/data/model7/'
+    modelFolder = '/root/data/model10/'
     checkpoint = torch.load(osp.join(modelFolder, f'model_epoch_{epoch}.pkl'))
     transformer.load_state_dict(checkpoint['state_dict'])
 
@@ -254,5 +254,5 @@ if __name__=="__main__":
         else:
             PathSuccess.append(False)
 
-    pickle.dump(PathSuccess, open(f'/root/data/model7/eval_plan_env{env_num}.p', 'wb'))
+    pickle.dump(PathSuccess, open(f'/root/data/model10/eval_plan_env{env_num}.p', 'wb'))
     print(sum(PathSuccess))
