@@ -5,7 +5,7 @@ This definitions are inspired from :
 import numpy as np
 import torch
 import torch.nn as nn
-
+import torch.utils.checkpoint
 from transformer.Layers import EncoderLayer, DecoderLayer
 
 from einops.layers.torch import Rearrange
@@ -147,8 +147,7 @@ class Encoder(nn.Module):
         enc_output = self.layer_norm(enc_output)
 
         for enc_layer in self.layer_stack:
-            enc_output, enc_slf_attn = enc_layer(enc_output, slf_attn_mask=None)
-            enc_slf_attn_list += [enc_slf_attn] if returns_attns else []
+            enc_output = enc_layer(enc_output, slf_attn_mask=None)
         
         if returns_attns:
             return enc_output, enc_slf_attn_list
