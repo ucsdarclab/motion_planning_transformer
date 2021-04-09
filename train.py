@@ -44,7 +44,7 @@ def cal_performance(predVals, anchorPoints, trueLabels, lengths):
         n_correct +=classPred.eq(trueLabel[:length]).sum().item()/length
     return total_loss, n_correct
 
-batch_size = 56
+batch_size = 56 * 4
 
 def train_epoch(model, trainingData, optimizer, device):
     '''
@@ -140,7 +140,7 @@ if __name__ == "__main__":
 
     # Training Data
     # shard_num = 0
-    trainDataset = PathDataLoaderv2([1, 2, 3, 4, 5], samples=5000, dataFolder='/root/data')
+    trainDataset = PathDataLoaderv2([1, 2, 3, 4, 5], samples=8000, dataFolder='/root/data')
     trainingData = DataLoader(trainDataset, num_workers=10, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Validation Data
