@@ -112,7 +112,7 @@ if __name__ == "__main__":
     torch.manual_seed(torch_seed)
 
     transformer = Models.Transformer(
-        n_layers=4, 
+        n_layers=6, 
         n_heads=3, 
         d_k=512, 
         d_v=256, 
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/model11'
+    trainDataFolder  = '/root/data/model12'
     writer = SummaryWriter(log_dir=trainDataFolder)
     for n in range(n_epochs):
         train_total_loss, train_n_correct = train_epoch(transformer, trainingData, optimizer, device)
