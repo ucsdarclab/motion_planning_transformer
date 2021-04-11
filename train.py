@@ -44,8 +44,6 @@ def cal_performance(predVals, anchorPoints, trueLabels, lengths):
         n_correct +=classPred.eq(trueLabel[:length]).sum().item()/length
     return total_loss, n_correct
 
-batch_size = 60 * 4
-
 def train_epoch(model, trainingData, optimizer, device):
     '''
     Train the model for 1-epoch with data from wds
@@ -102,11 +100,16 @@ def eval_epoch(model, validationData, device):
     return total_loss, total_n_correct
 
 
+import sys
 if __name__ == "__main__":
+    batch_size = int(sys.argv[1])
     device = 'cpu'
     if torch.cuda.is_available():
         print("Using GPU....")
         device = torch.device('cuda')
+
+    if torch.cuda.device_count() > 1:
+        batch_size = batch_size * torch.cuda.device_count()
 
     torch_seed = np.random.randint(low=0, high=1000)
     torch.manual_seed(torch_seed)
