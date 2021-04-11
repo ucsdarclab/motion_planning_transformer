@@ -110,6 +110,7 @@ if __name__ == "__main__":
 
     if torch.cuda.device_count() > 1:
         batch_size = batch_size * torch.cuda.device_count()
+    pritnt(f"Total batch size : {batch_size}")
 
     torch_seed = np.random.randint(low=0, high=1000)
     torch.manual_seed(torch_seed)
