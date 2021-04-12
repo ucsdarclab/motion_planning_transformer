@@ -10,6 +10,8 @@ import numpy as np
 import pickle
 
 from os import path as osp
+import argparse
+import json
 
 try:
     from ompl import base as ob
@@ -19,7 +21,6 @@ except ImportError:
     raise ImportError("Container does not have OMPL installed")
 
 from transformer import Models
-
 
 res = 0.05
 length = 24
@@ -192,20 +193,23 @@ def get_patch(model, start_pos, goal_pos, input_map):
     return patch_map
 
 device='cuda' if torch.cuda.is_available() else 'cpu'
-import sys    
+
 if __name__=="__main__":
-    env_num = int(sys.argv[1])
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--modelFolder', help='Directory where model_params.json exists', required=True)
+    parser.add_argument('--envNum', help='Environment number to validate model', required=True)
+
+    args = parser.parse_args()
+
+    modelFolder = args.modelFolder
+    modelFile = osp.join(modelFolder, f'model_params.json')
+    assert osp.isfile(modelFile), f"Cannot find the model_params.json file in {modelFolder}"
+
+    env_num = args.envNum
+
+    model_param = json.load(open(modelFile))
     transformer = Models.Transformer(
-        n_layers=2, 
-        n_heads=6, 
-        d_k=512, 
-        d_v=256, 
-        d_model=512, 
-        d_inner=1024, 
-        pad_idx=None,
-        n_position=40*40,
-        train_shape=[24, 24], # NOTE: This is hard coded value.
-        dropout=0.1
+        **model_param
     )
 
     transformer.to(device)
@@ -213,7 +217,6 @@ if __name__=="__main__":
     receptive_field=32
     # Load model parameters
     epoch = 149
-    modelFolder = '/root/data/model10/'
     checkpoint = torch.load(osp.join(modelFolder, f'model_epoch_{epoch}.pkl'))
     transformer.load_state_dict(checkpoint['state_dict'])
 
@@ -222,7 +225,7 @@ if __name__=="__main__":
 
     # Get path data
     PathSuccess = []
-    for pathNum in range(1000):
+    for pathNum in range(5):
     # pathNum = 0
         pathFile = f'/root/data/val/env{env_num}/path_{pathNum}.p'
         data = pickle.load(open(pathFile, 'rb'))
@@ -254,5 +257,5 @@ if __name__=="__main__":
         else:
             PathSuccess.append(False)
 
-    pickle.dump(PathSuccess, open(f'/root/data/model10/eval_plan_env{env_num}.p', 'wb'))
+    pickle.dump(PathSuccess, open(osp.join(modelFolder, f'eval_plan_env{env_num}.p'), 'wb'))
     print(sum(PathSuccess))
