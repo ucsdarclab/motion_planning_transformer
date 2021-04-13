@@ -21,20 +21,11 @@ except ImportError:
     raise ImportError("Container does not have OMPL installed")
 
 from transformer import Models
+from utils import geom2pix
 
 res = 0.05
 length = 24
 
-def geom2pix(pos, res=0.05, size=(480, 480)):
-    """
-    Convert geometrical position to pixel co-ordinates. The origin is assumed to be 
-    at [image_size[0]-1, 0].
-    :param pos: The (x,y) geometric co-ordinates.
-    :param res: The distance represented by each pixel.
-    :param size: The size of the map image
-    :returns (int, int): The associated pixel co-ordinates.
-    """
-    return (np.int(np.floor(pos[0]/res)), np.int(size[0]-1-np.floor(pos[1]/res)))
 
 def pix2geom(pos, res=0.05, length=24):
     """
