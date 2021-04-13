@@ -4,6 +4,8 @@
 # 3rd party files
 vision_transformer/**
 vit-pytorch/**
+pytorch-receptive-field/**
+torch_receptive_field/**
 
 # Jupyter notebooks
 .ipynb_checkpoints/**
