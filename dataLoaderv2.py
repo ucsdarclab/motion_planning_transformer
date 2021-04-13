@@ -13,6 +13,8 @@ from einops import rearrange
 
 from torch.nn.utils.rnn import pad_sequence
 
+from utils import geom2pix
+
 def PaddedSequence(batch):
     '''
     This should be passed to DataLoader class to collate batched samples with various length.
@@ -29,25 +31,13 @@ map_size = (480, 480)
 receptive_field = 32
 res = 0.05 # meter/pixels
 
-def geom2pix(pos, res=0.05, size=(480, 480)):
-    """
-    Convert geometrical position to pixel co-ordinates. The origin is assumed to be 
-    at [image_size[0]-1, 0].
-    :param pos: The (x,y) geometric co-ordinates.
-    :param res: The distance represented by each pixel.
-    :param size: The size of the map image
-    :returns (int, int): The associated pixel co-ordinates.
-    """
-    return (np.int(np.floor(pos[0]/res)), np.int(size[0]-1-np.floor(pos[1]/res)))
-
-
 # Convert Anchor points to points on the axis.
-X = np.arange(15, 23*20+15, 20)*res
-Y = 24-np.arange(15, 23*20+15, 20)*res
+X = np.arange(4, 24*20+4, 20)*res
+Y = 24-np.arange(4, 24*20+4, 20)*res
 
 grid_2d = np.meshgrid(X, Y)
 grid_points = rearrange(grid_2d, 'c h w->(h w) c')
-hashTable = [(20*r+15, 20*c+15) for c in range(23) for r in range(23)]
+hashTable = [(20*r+4, 20*c+4) for c in range(24) for r in range(24)]
 
 def geom2pixMatpos(pos, res=0.05, size=(480, 480)):
     """
@@ -112,7 +102,7 @@ class PathDataLoaderv2(Dataset):
         with open(osp.join(self.dataFolder, f'env{env}', f'path_{idx_sample}.p'), 'rb') as f:
             data = pickle.load(f)
 
-        if data['success']:        
+        if data['success']:
             path = data['path_interpolated']
             # Mark goal region
             context_map = np.zeros(mapEnvg.shape)
@@ -121,6 +111,9 @@ class PathDataLoaderv2(Dataset):
             goal_start_y = max(0, goal_index[1]- receptive_field//2)
             goal_end_x = min( map_size[0], goal_index[0]+ receptive_field//2)
             goal_end_y = min( map_size[1], goal_index[1]+ receptive_field//2)
+            # TODO:  There is an error in the context map here,  
+            # where the x and y axis are switched. But the model seems to learn
+            # from this representation too.
             context_map[goal_start_x:goal_end_x, goal_start_y:goal_end_y] = 1.0
             # Mark start region
             start_index = geom2pix(path[0, :])
@@ -128,6 +121,9 @@ class PathDataLoaderv2(Dataset):
             start_start_y = max(0, start_index[1]- receptive_field//2)
             start_end_x = min( map_size[0], start_index[0]+ receptive_field//2)
             start_end_y = min( map_size[1], start_index[1]+ receptive_field//2)
+            # TODO:  There is an error in the context map here,  
+            # where the x and y axis are switched. But the model seems to learn
+            # from this representation too.
             context_map[start_start_x:start_end_x, start_start_y:start_end_y] = -1.0
 
             mapEncoder = np.concatenate((mapEnvg[None, :], context_map[None, :]), axis=0)

@@ -38,7 +38,7 @@ class ScaledDotProductAttention(nn.Module):
         attn = self.dropout(F.softmax(attn, dim=-1))
         output = torch.matmul(attn, v)
 
-        return output, attn
+        return output
 
         
 class MultiHeadAttention(nn.Module):
@@ -97,7 +97,7 @@ class MultiHeadAttention(nn.Module):
         if mask is not None:
             mask = mask.unsqueeze(1)   # For head axis broadcasting.
 
-        q, attn = self.attention(q, k, v, mask=mask)
+        q = self.attention(q, k, v, mask=mask)
 
         # Transpose to move the head dimension back: b x lq x n x dv
         # Combine the last two dimensions to concatenate all the heads together: b x lq x (n*dv)
@@ -107,7 +107,7 @@ class MultiHeadAttention(nn.Module):
 
         q = self.layer_norm(q)
 
-        return q, attn
+        return q
 
 
 class PositionwiseFeedForward(nn.Module):

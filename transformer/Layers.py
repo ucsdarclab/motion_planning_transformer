@@ -4,6 +4,7 @@ Derived from - https://github.com/jadore801120/attention-is-all-you-need-pytorch
 
 import torch.nn as nn
 import torch
+import torch.utils.checkpoint
 from transformer.SubLayers import MultiHeadAttention, PositionwiseFeedForward
 
 class EncoderLayer(nn.Module):
@@ -31,10 +32,19 @@ class EncoderLayer(nn.Module):
         :param enc_input: The input to the encoder.
         :param slf_attn_mask: TODO ......
         '''
-        enc_output, enc_slf_attn = self.slf_attn(
-            enc_input, enc_input, enc_input, mask=slf_attn_mask)
+        # # Without gradient Checking
+        # enc_output = self.slf_attn(
+        #     enc_input, enc_input, enc_input, mask=slf_attn_mask)
+
+        # With Gradient Checking
+        enc_output = torch.utils.checkpoint.checkpoint(self.slf_attn, 
+        enc_input, enc_input, enc_input, slf_attn_mask)
+
+        # enc_output, enc_slf_attn = self.slf_attn(
+        #     enc_input, enc_input, enc_input, mask=slf_attn_mask)
+
         enc_output = self.pos_ffn(enc_output)
-        return enc_output, enc_slf_attn
+        return enc_output
 
 
 class DecoderLayer(nn.Module):

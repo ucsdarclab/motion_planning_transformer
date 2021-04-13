@@ -5,7 +5,7 @@ This definitions are inspired from :
 import numpy as np
 import torch
 import torch.nn as nn
-
+import torch.utils.checkpoint
 from transformer.Layers import EncoderLayer, DecoderLayer
 
 from einops.layers.torch import Rearrange
@@ -101,6 +101,8 @@ class Encoder(nn.Module):
         # NOTE: This is one place where we can add convolution networks.
         # Convert the image to linear model
 
+        # NOTE: Padding of 8 is added to the initial layer to ensure that 
+        # the output of the network has receptive field across the entire map.
         self.to_patch_embedding = nn.Sequential(
             nn.Conv2d(2, 6, kernel_size=5),
             nn.MaxPool2d(kernel_size=2),
@@ -108,7 +110,7 @@ class Encoder(nn.Module):
             nn.Conv2d(6, 16, kernel_size=5),
             nn.MaxPool2d(kernel_size=2),
             nn.ReLU(),
-            nn.Conv2d(16, d_model, kernel_size=5, stride=5)
+            nn.Conv2d(16, d_model, kernel_size=5, stride=5, padding=3)
         )
 
         self.reorder_dims = Rearrange('b c h w -> b (h w) c')
@@ -125,12 +127,13 @@ class Encoder(nn.Module):
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         
 
-    def forward(self, input_map):
+    def forward(self, input_map, returns_attns=False):
         '''
         The input of the Encoder should be of dim (b, c, h, w).
         :param input_map: The input map for planning.
-        :param goal: TODO ....
+        :param returns_attns: If True, the model returns slf_attns at each layer
         '''
+        enc_slf_attn_list = []
         enc_output = self.to_patch_embedding(input_map)
         conv_map_shape = enc_output.shape[-2:]
         enc_output = self.reorder_dims(enc_output)
@@ -144,9 +147,11 @@ class Encoder(nn.Module):
         enc_output = self.layer_norm(enc_output)
 
         for enc_layer in self.layer_stack:
-            enc_output, _ = enc_layer(enc_output, slf_attn_mask=None)
+            enc_output = enc_layer(enc_output, slf_attn_mask=None)
         
-        return enc_output, _
+        if returns_attns:
+            return enc_output, enc_slf_attn_list
+        return enc_output, 
 
 
 class Decoder(nn.Module):
@@ -254,15 +259,6 @@ class Transformer(nn.Module):
             nn.Conv2d(512, 2, kernel_size=1),
             Rearrange('bc d 1 1 -> bc d')
         )
-
-    def _getGeom2Pix(self, pos):
-        '''
-        Convert geometrical position to pixel co-ordinates. The origin is assumed to be 
-        at [image_self.size[0]-1, 0].
-        :param pos: The (x,y) geometric co-ordinates.
-        :returns (int, int): The associated pixel co-ordinates.
-        '''
-        return (np.int(self.map_size[0]-1-np.floor(pos[1]/self.map_res)), np.int(np.floor(pos[0]/self.map_res)))
 
 
     def forward(self, input_map):

@@ -20,6 +20,8 @@ except ImportError:
     print("Could not find OMPL")
     raise ImportError("Run inside docker!!")
 
+from utils import geom2pix
+
 # All measurements are mentioned in meters
 # Define global parameters
 length = 24 # Size of the map
@@ -32,19 +34,6 @@ invert_img_g = np.abs(1-img_g)
 invert_img_g_dilate = skim.dilation(invert_img_g, skim.disk(robot_radius/dist_resl))
 img_g_dilate = np.abs(1-invert_img_g_dilate)
 
-
-def geom2pix(pos, res=0.05, size=(480, 480)):
-    """
-    Convert geometrical position to pixel co-ordinates. The origin 
-    is assumed to be at [image_size[0]-1, 0].
-    :param pos: The (x,y) geometric co-ordinates.
-    :param res: The distance represented by each pixel.
-    :param size: The size of the map image
-    :returns (int, int): The associated pixel co-ordinates.
-    """
-    return (np.int(size[0]-1-np.floor(pos[1]/res)), np.int(np.floor(pos[0]/res)))
-
-
 class ValidityCheckerDistance(ob.StateValidityChecker):
     '''A class to check the validity of the state, by checking distance function
     '''
@@ -56,7 +45,9 @@ class ValidityCheckerDistance(ob.StateValidityChecker):
         :return bool: True if the state is valid.
         '''
         pix_dim = geom2pix(state)
-        return img_g_dilate[pix_dim[0], pix_dim[1]]>0.5
+        # NOTE: Switch states to access the (x,y) co-ordinate
+        # on the image matrix
+        return img_g_dilate[pix_dim[1], pix_dim[0]]>0.5
 
 # Define the space
 space = ob.RealVectorStateSpace(2)

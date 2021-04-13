@@ -8,8 +8,8 @@ do
 	    --rm \
 	    --name=data_$1_$CID \
 	    --shm-size="2g"\
-	    -v /home/jacoblab/global_planner:/workspace \
-	    -v /home/jacoblab/global_planner_data:/root/data \
+	    -v ~/global_planner:/workspace \
+	    -v ~/global_planner_data:/root/data \
 	    pytorch/pytorch:1.7.1-cuda11.0-cudnn8-jupyter\
 	    python generateShards.py $CID $((CID*SAMPLES)) $SAMPLES
 done

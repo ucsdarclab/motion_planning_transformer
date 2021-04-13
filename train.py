@@ -12,6 +12,7 @@ import skimage.io
 
 from torchvision.transforms import Normalize
 from torch.utils.data import DataLoader
+import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 from os import path as osp
@@ -42,8 +43,6 @@ def cal_performance(predVals, anchorPoints, trueLabels, lengths):
         classPred = predVal.max(1)[1]
         n_correct +=classPred.eq(trueLabel[:length]).sum().item()/length
     return total_loss, n_correct
-
-batch_size = 96
 
 def train_epoch(model, trainingData, optimizer, device):
     '''
@@ -101,17 +100,23 @@ def eval_epoch(model, validationData, device):
     return total_loss, total_n_correct
 
 
+import sys
 if __name__ == "__main__":
+    batch_size = int(sys.argv[1])
     device = 'cpu'
     if torch.cuda.is_available():
         print("Using GPU....")
         device = torch.device('cuda')
 
+    if torch.cuda.device_count() > 1:
+        batch_size = batch_size * torch.cuda.device_count()
+    print(f"Total batch size : {batch_size}")
+
     torch_seed = np.random.randint(low=0, high=1000)
     torch.manual_seed(torch_seed)
 
     transformer = Models.Transformer(
-        n_layers=2, 
+        n_layers=6, 
         n_heads=3, 
         d_k=512, 
         d_v=256, 
@@ -120,8 +125,13 @@ if __name__ == "__main__":
         pad_idx=None,
         n_position=40*40, 
         dropout=0.1,
-        train_shape=[23, 23],
-    ).to(device=device)
+        train_shape=[24, 24],
+    )
+    
+    if torch.cuda.device_count() > 1:
+        print("Using ", torch.cuda.device_count(), "GPUs")
+        transformer = nn.DataParallel(transformer)
+    transformer.to(device=device)
 
     # Define the optimizer
     # TODO: What does these parameters do ???
@@ -135,20 +145,20 @@ if __name__ == "__main__":
     # Training Data
     # shard_num = 0
     trainDataset = PathDataLoaderv2([1, 2, 3, 4, 5], samples=8000, dataFolder='/root/data')
-    trainingData = DataLoader(trainDataset, num_workers=20, batch_size=batch_size, collate_fn=PaddedSequence)
+    trainingData = DataLoader(trainDataset, num_workers=10, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Validation Data
     valDataset = PathDataLoaderv2([1, 2, 3, 4, 5], samples=800, dataFolder='/root/data/val')
     validationData = DataLoader(valDataset, num_workers=5, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Increase number of epochs.
-    n_epochs = 500
+    n_epochs = 150
     results = {}
     train_loss = []
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/model6'
+    trainDataFolder  = '/root/data/model12'
     writer = SummaryWriter(log_dir=trainDataFolder)
     for n in range(n_epochs):
         train_total_loss, train_n_correct = train_epoch(transformer, trainingData, optimizer, device)
@@ -164,8 +174,12 @@ if __name__ == "__main__":
         val_n_correct_list.append(val_n_correct)
 
         if (n+1)%5==0:
+            if isinstance(transformer, nn.DataParallel):
+                state_dict = transformer.module.state_dict()
+            else:
+                state_dict = transformer.state_dict()
             states = {
-                'state_dict': transformer.state_dict(),
+                'state_dict': state_dict,
                 'optimizer': optimizer._optimizer.state_dict(),
                 'torch_seed': torch_seed
             }

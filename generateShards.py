@@ -14,27 +14,17 @@ from tqdm import tqdm
 
 import webdataset as wds
 
+from utils import geom2pix
+
 map_size = (480, 480)
 patch_size = 32
 stride = 8
-
-def geom2pix(pos, res=0.05, size=(480, 480)):
-    """
-    Convert geometrical position to pixel co-ordinates. The origin is assumed to be 
-    at [image_size[0]-1, 0].
-    :param pos: The (x,y) geometric co-ordinates.
-    :param res: The distance represented by each pixel.
-    :param size: The size of the map image
-    :returns (int, int): The associated pixel co-ordinates.
-    """
-    return (np.int(size[0]-1-np.floor(pos[1]/res)), np.int(np.floor(pos[0]/res)))
-
 
 num_points = (map_size[0]-patch_size)//stride + 1
 discrete_points = np.linspace(0.05*(patch_size//2), 24-0.05*(patch_size//2), num_points)
 grid_2d = np.meshgrid(discrete_points, discrete_points)
 grid_points = np.reshape(np.array(grid_2d), (2, -1)).T
-hash_table = [geom2pix(xy) for xy in grid_points]
+hash_table = [geom2pix(xy)[::-1] for xy in grid_points]
 
 def geom2pixMat(pos, res=0.05, size=(480, 480)):
     """
