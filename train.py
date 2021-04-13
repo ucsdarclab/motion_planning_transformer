@@ -18,7 +18,7 @@ from tqdm import tqdm
 from os import path as osp
 
 from transformer import Models, Optim
-from dataLoaderv2 import PathDataLoaderv2, PaddedSequence
+from dataLoader import PathDataLoader, PaddedSequence
 from utils import png_decoder, cls_decoder
 import webdataset as wds
 
@@ -144,11 +144,11 @@ if __name__ == "__main__":
 
     # Training Data
     # shard_num = 0
-    trainDataset = PathDataLoaderv2([1, 2, 3, 4, 5], samples=8000, dataFolder='/root/data')
+    trainDataset = PathDataLoader([1, 2, 3, 4, 5], samples=8000, dataFolder='/root/data')
     trainingData = DataLoader(trainDataset, num_workers=10, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Validation Data
-    valDataset = PathDataLoaderv2([1, 2, 3, 4, 5], samples=800, dataFolder='/root/data/val')
+    valDataset = PathDataLoader([1, 2, 3, 4, 5], samples=800, dataFolder='/root/data/val')
     validationData = DataLoader(valDataset, num_workers=5, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Increase number of epochs.

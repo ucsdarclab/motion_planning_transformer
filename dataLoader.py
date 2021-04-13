@@ -62,7 +62,7 @@ def geom2pixMatneg(pos, res=0.05, size=(480, 480)):
     indices = np.where(np.logical_and(dist>receptive_field*res*0.3,dist<=receptive_field*res*1.5))
     return indices
 
-class PathDataLoaderv2(Dataset):
+class PathDataLoader(Dataset):
     '''Loads each path, and extracts the masked positive and negative regions
     '''
 
