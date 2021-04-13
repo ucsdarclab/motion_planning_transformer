@@ -29,6 +29,7 @@ def cls_decoder(key, value):
     assert isinstance(value, bytes)
     return int(value)
 
+
 def geom2pix(pos, res=0.05, size=(480, 480)):
     """
     Convert geometrical position to pixel co-ordinates. The origin 
@@ -38,7 +39,7 @@ def geom2pix(pos, res=0.05, size=(480, 480)):
     :param size: The size of the map image
     :returns (int, int): The associated pixel co-ordinates.
     NOTE: The Pixel co-ordinates are represented as follows:
-    (0,0)------ X ----------- |
+    (0,0)------ X ----------->|
     |                         |  
     |                         |  
     |                         |  
@@ -46,7 +47,7 @@ def geom2pix(pos, res=0.05, size=(480, 480)):
     Y                         |
     |                         |
     |                         |  
-    |                         |  
+    v                         |  
     ---------------------------  
     """
     return (np.int(np.floor(pos[0]/res)), np.int(size[0]-1-np.floor(pos[1]/res)))
