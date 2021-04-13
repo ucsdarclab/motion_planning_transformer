@@ -260,15 +260,6 @@ class Transformer(nn.Module):
             Rearrange('bc d 1 1 -> bc d')
         )
 
-    def _getGeom2Pix(self, pos):
-        '''
-        Convert geometrical position to pixel co-ordinates. The origin is assumed to be 
-        at [image_self.size[0]-1, 0].
-        :param pos: The (x,y) geometric co-ordinates.
-        :returns (int, int): The associated pixel co-ordinates.
-        '''
-        return (np.int(self.map_size[0]-1-np.floor(pos[1]/self.map_res)), np.int(np.floor(pos[0]/self.map_res)))
-
 
     def forward(self, input_map):
         '''
