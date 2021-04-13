@@ -1,79 +1,154 @@
-''' Define a dataloader class.
+''' A dataloader for training Mask+Transformers
 '''
 
-from os import path as osp
-from torch.utils.data import IterableDataset
-from skimage import io, color
-
-import numpy as np
-import pickle
 import torch
+from torch.utils.data import Dataset
+
+import skimage.io
+import pickle
+import numpy as np
+
+from os import path as osp
+from einops import rearrange
+
+from torch.nn.utils.rnn import pad_sequence
 
 from utils import geom2pix
 
-rootFolder = '/root/data'
-map_size = (480, 480)
-patch_size = 32
-stride = 8
-
-num_points = (map_size[0]-patch_size)//stride
-discrete_points = np.linspace(0.05*(patch_size//2), 24-0.05*(patch_size//2), num_points)
-grid_2d = np.meshgrid(discrete_points, discrete_points)
-grid_points = np.reshape(np.array(grid_2d), (2, -1)).T
-hash_table = [geom2pix(xy)[::-1] for xy in grid_points]
-
-class PathIterDataset(IterableDataset):
-    ''' Iterable dataset.
+def PaddedSequence(batch):
     '''
-    def __init__(self, envs, samples):
+    This should be passed to DataLoader class to collate batched samples with various length.
+    :param batch: The batch to consolidate
+    '''
+    data = {}
+    data['map'] = torch.cat([batch_i['map'][None, :] for batch_i in batch if batch_i is not None])
+    data['anchor'] = pad_sequence([batch_i['anchor'] for batch_i in batch if batch_i is not None], batch_first=True)
+    data['labels'] = pad_sequence([batch_i['labels'] for batch_i in batch if batch_i is not None], batch_first=True)
+    data['length'] = torch.tensor([batch_i['anchor'].shape[0] for batch_i in batch if batch_i is not None])
+    return data
+
+map_size = (480, 480)
+receptive_field = 32
+res = 0.05 # meter/pixels
+
+# Convert Anchor points to points on the axis.
+X = np.arange(4, 24*20+4, 20)*res
+Y = 24-np.arange(4, 24*20+4, 20)*res
+
+grid_2d = np.meshgrid(X, Y)
+grid_points = rearrange(grid_2d, 'c h w->(h w) c')
+hashTable = [(20*r+4, 20*c+4) for c in range(24) for r in range(24)]
+
+def geom2pixMatpos(pos, res=0.05, size=(480, 480)):
+    """
+    Find the nearest index of the discrete map state.
+    :param pos: The (x,y) geometric co-ordinates.
+    :param res: The distance represented by each pixel.
+    :param size: The size of the map image
+    :returns (int, int): The associated pixel co-ordinates.
+    """
+    indices = np.where(np.linalg.norm(grid_points-pos, axis=1)<=receptive_field*res*0.7)
+    return indices
+
+def geom2pixMatneg(pos, res=0.05, size=(480, 480)):
+    """
+    Find the nearest index of the discrete map state.
+    :param pos: The (x,y) geometric co-ordinates.
+    :param res: The distance represented by each pixel.
+    :param size: The size of the map image
+    :returns (int, int): The associated pixel co-ordinates.
+    """
+    dist = np.linalg.norm(grid_points-pos, axis=1)
+    indices = np.where(np.logical_and(dist>receptive_field*res*0.3,dist<=receptive_field*res*1.5))
+    return indices
+
+class PathDataLoader(Dataset):
+    '''Loads each path, and extracts the masked positive and negative regions
+    '''
+
+    def __init__(self, env_list, samples, dataFolder):
         '''
-        :param env: list of map environments to load data from.
-        :param samples: Number of samples to load from each map.
+        :param env_list: The list of map environments to collect data from.
+        :param samples: The number of paths to use from each folder.
+        :param dataFolder: The parent folder where the files are located.
+            It should follow the following format:
+                env1/path_0.p
+                    ...
+                env2/path_0.p
+                    ...
+                    ...
         '''
-        assert isinstance(envs, list), "List of environments required"
-        self.envs = envs
+        assert isinstance(env_list, list), "Needs to be a list"
+        self.num_env = len(env_list)
         self.samples = samples
-        self.mapEnvg = {}
-        # Load all maps
-        for env in envs:
-            mapLoc = osp.join('/root/data', 'env{}'.format(env), 'map_{}.png'.format(env))
-            mapEnv = io.imread(mapLoc)
-            self.mapEnvg[env] = color.rgb2gray(color.rgba2rgb(mapEnv))
-        
-    def __iter__(self):
-        '''
-        Return the data iterator.
-        '''
-        # For multiple cores
-        worker_info = torch.utils.data.get_worker_info()
-        if worker_info is not None:
-            assert worker_info.num_workers == len(self.envs), "Each map requires 1 worker"
-            worker_id = worker_info.id
-            return iter(self.getItem(i, self.envs[worker_id]) for i in range(self.samples))
-        
-        return iter(self.getItem(i, self.envs[0]) for i in range(self.samples))
+        self.env_list = env_list
+        self.dataFolder = dataFolder
     
-    def getItem(self, i, env):
+
+    def __len__(self):
+        return self.num_env*self.samples
+
+    
+    def __getitem__(self, idx):
         '''
-        Get the item and unroll the environment.
-        :param i: The index of the sample.
-        :param env: Environment from which to read the data.
+        Returns the sample at index idx.
+        returns dict: A dictonary of the encoded map and target points.
         '''
-        dataFile = osp.join(rootFolder, 'env{}'.format(env), 'process', 'data_{}.p'.format(i))
-        data = pickle.load(open(dataFile, 'rb'))
-        if data['seq'] is not None:
-            samples = len(data['seq'])
-            obs = np.repeat(data['map'][None, :], samples-1, axis=0)
-            inputs = np.zeros((samples-1, 1, patch_size, patch_size))
-            targets = np.zeros((samples-1, 1))
-            for j in range(samples-1):
-                cur_index = hash_table[data['seq'][j]]
-                start_x, start_y = cur_index[0]-patch_size//2, cur_index[1]-patch_size//2
-                goal_x, goal_y = cur_index[0]+patch_size//2, cur_index[1]+patch_size//2
-                inputs[j, 0,:, :] = self.mapEnvg[env][start_x:goal_x, start_y:goal_y]
-                targets[j, 0] = data['seq'][j+1]
+        idx_env = int(idx//self.samples)
+        idx_sample = int(idx-idx_env*self.samples)
+        env = self.env_list[idx_env]
+        mapEnvg = skimage.io.imread(osp.join(self.dataFolder, f'env{env}', f'map_{env}.png'), as_gray=True)
+        
+        with open(osp.join(self.dataFolder, f'env{env}', f'path_{idx_sample}.p'), 'rb') as f:
+            data = pickle.load(f)
+
+        if data['success']:
+            path = data['path_interpolated']
+            # Mark goal region
+            context_map = np.zeros(mapEnvg.shape)
+            goal_index = geom2pix(path[-1, :])
+            goal_start_x = max(0, goal_index[0]- receptive_field//2)
+            goal_start_y = max(0, goal_index[1]- receptive_field//2)
+            goal_end_x = min( map_size[0], goal_index[0]+ receptive_field//2)
+            goal_end_y = min( map_size[1], goal_index[1]+ receptive_field//2)
+            # TODO:  There is an error in the context map here,  
+            # where the x and y axis are switched. But the model seems to learn
+            # from this representation too.
+            context_map[goal_start_x:goal_end_x, goal_start_y:goal_end_y] = 1.0
+            # Mark start region
+            start_index = geom2pix(path[0, :])
+            start_start_x = max(0, start_index[0]- receptive_field//2)
+            start_start_y = max(0, start_index[1]- receptive_field//2)
+            start_end_x = min( map_size[0], start_index[0]+ receptive_field//2)
+            start_end_y = min( map_size[1], start_index[1]+ receptive_field//2)
+            # TODO:  There is an error in the context map here,  
+            # where the x and y axis are switched. But the model seems to learn
+            # from this representation too.
+            context_map[start_start_x:start_end_x, start_start_y:start_end_y] = -1.0
+
+            mapEncoder = np.concatenate((mapEnvg[None, :], context_map[None, :]), axis=0)
+
+            AnchorPointsPos = []
+            AnchorPointsNeg = []
+            for pos in path:
+                indices, = geom2pixMatpos(pos)
+                for index in indices:
+                    if index not in AnchorPointsPos:
+                        AnchorPointsPos.append(index)
+                indices, = geom2pixMatneg(pos)
+                for index in indices:
+                    if index not in AnchorPointsNeg:
+                        AnchorPointsNeg.append(index)
+            # Remove all positive anchor points from negative samples
+            for index in AnchorPointsPos:
+                if index in AnchorPointsNeg:
+                    AnchorPointsNeg.remove(index)
+            
+            anchor = torch.cat((torch.tensor(AnchorPointsPos), torch.tensor(AnchorPointsNeg)))
+            labels = torch.zeros_like(anchor)
+            labels[:len(AnchorPointsPos)] = 1
             return {
-                'obs': obs,
-                'inputs': inputs,
-                'targets': targets
+                'map':torch.as_tensor(mapEncoder), 
+                'anchor':anchor, 
+                'labels':labels
             }
