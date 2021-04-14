@@ -144,7 +144,7 @@ if __name__ == "__main__":
 
     # Training Data
     # shard_num = 0
-    trainDataset = PathDataLoader([1, 2, 3, 4, 5], samples=8000, dataFolder='/root/data')
+    trainDataset = PathDataLoader(list(range(1000)), samples=10, dataFolder='/root/data/train2')
     trainingData = DataLoader(trainDataset, num_workers=10, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Validation Data
@@ -158,7 +158,7 @@ if __name__ == "__main__":
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/model12'
+    trainDataFolder  = '/root/data/model12v2'
     writer = SummaryWriter(log_dir=trainDataFolder)
     for n in range(n_epochs):
         train_total_loss, train_n_correct = train_epoch(transformer, trainingData, optimizer, device)

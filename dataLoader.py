@@ -97,9 +97,9 @@ class PathDataLoader(Dataset):
         idx_env = int(idx//self.samples)
         idx_sample = int(idx-idx_env*self.samples)
         env = self.env_list[idx_env]
-        mapEnvg = skimage.io.imread(osp.join(self.dataFolder, f'env{env}', f'map_{env}.png'), as_gray=True)
+        mapEnvg = skimage.io.imread(osp.join(self.dataFolder, f'env{env:06d}', f'map_{env}.png'), as_gray=True)
         
-        with open(osp.join(self.dataFolder, f'env{env}', f'path_{idx_sample}.p'), 'rb') as f:
+        with open(osp.join(self.dataFolder, f'env{env:06d}', f'path_{idx_sample}.p'), 'rb') as f:
             data = pickle.load(f)
 
         if data['success']:

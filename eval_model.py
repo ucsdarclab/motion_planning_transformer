@@ -159,7 +159,8 @@ device='cuda' if torch.cuda.is_available() else 'cpu'
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--modelFolder', help='Directory where model_params.json exists', required=True)
-    parser.add_argument('--envNum', help='Environment number to validate model', required=True)
+    # parser.add_argument('--envNum', help='Environment number to validate model', required=True)
+    parser.add_argument('--start')
 
     args = parser.parse_args()
 
@@ -167,7 +168,8 @@ if __name__=="__main__":
     modelFile = osp.join(modelFolder, f'model_params.json')
     assert osp.isfile(modelFile), f"Cannot find the model_params.json file in {modelFolder}"
 
-    env_num = args.envNum
+    # env_num = args.envNum
+    start = int(args.start)
 
     model_param = json.load(open(modelFile))
     transformer = Models.Transformer(
@@ -182,42 +184,44 @@ if __name__=="__main__":
     checkpoint = torch.load(osp.join(modelFolder, f'model_epoch_{epoch}.pkl'))
     transformer.load_state_dict(checkpoint['state_dict'])
 
-    temp_map =  f'/root/data/env{env_num}/map_{env_num}.png'
-    small_map = skimage.io.imread(temp_map, as_gray=True)
 
     # Get path data
     PathSuccess = []
-    for pathNum in range(5):
-    # pathNum = 0
-        pathFile = f'/root/data/val/env{env_num}/path_{pathNum}.p'
-        data = pickle.load(open(pathFile, 'rb'))
-        path = data['path_interpolated']
+    for env_num in range(start, start+200):
+        temp_map =  f'/root/data/val2/env{env_num:06d}/map_{env_num}.png'
+        small_map = skimage.io.imread(temp_map, as_gray=True)
 
-        if data['success']:
-            goal_pos = geom2pix(path[0, :])
-            start_pos = geom2pix(path[-1, :])
+        for pathNum in range(1):
+        # pathNum = 0
+            pathFile = f'/root/data/val2/env{env_num:06d}/path_{pathNum}.p'
+            data = pickle.load(open(pathFile, 'rb'))
+            path = data['path_interpolated']
 
-            # Identitfy Anchor points
-            encoder_input = get_encoder_input(small_map, goal_pos, start_pos)
-            predVal = transformer(encoder_input[None,:].float().cuda())
-            predClass = predVal[0, :, :].max(1)[1]
+            if data['success']:
+                goal_pos = geom2pix(path[0, :])
+                start_pos = geom2pix(path[-1, :])
 
-            predProb = F.softmax(predVal[0, :, :], dim=1)
-            possAnchor = [hashTable[i] for i, label in enumerate(predClass) if label==1]
+                # Identitfy Anchor points
+                encoder_input = get_encoder_input(small_map, goal_pos, start_pos)
+                predVal = transformer(encoder_input[None,:].float().cuda())
+                predClass = predVal[0, :, :].max(1)[1]
 
-            # Generate Patch Maps
-            patch_map = np.zeros_like(small_map)
-            map_size = small_map.shape
-            for pos in possAnchor:
-                goal_start_x = max(0, pos[0]- receptive_field//2)
-                goal_start_y = max(0, pos[1]- receptive_field//2)
-                goal_end_x = min(map_size[0], pos[0]+ receptive_field//2)
-                goal_end_y = min(map_size[1], pos[1]+ receptive_field//2)
-                patch_map[goal_start_y:goal_end_y, goal_start_x:goal_end_x] = 1.0
+                predProb = F.softmax(predVal[0, :, :], dim=1)
+                possAnchor = [hashTable[i] for i, label in enumerate(predClass) if label==1]
 
-            PathSuccess.append(get_path(path[0, :], path[-1, :], small_map, patch_map))
-        else:
-            PathSuccess.append(False)
+                # Generate Patch Maps
+                patch_map = np.zeros_like(small_map)
+                map_size = small_map.shape
+                for pos in possAnchor:
+                    goal_start_x = max(0, pos[0]- receptive_field//2)
+                    goal_start_y = max(0, pos[1]- receptive_field//2)
+                    goal_end_x = min(map_size[0], pos[0]+ receptive_field//2)
+                    goal_end_y = min(map_size[1], pos[1]+ receptive_field//2)
+                    patch_map[goal_start_y:goal_end_y, goal_start_x:goal_end_x] = 1.0
 
-    pickle.dump(PathSuccess, open(osp.join(modelFolder, f'eval_plan_env{env_num}.p'), 'wb'))
+                PathSuccess.append(get_path(path[0, :], path[-1, :], small_map, patch_map))
+            else:
+                PathSuccess.append(False)
+
+    pickle.dump(PathSuccess, open(osp.join(modelFolder, f'eval_unknown_plan_{start:06d}.p'), 'wb'))
     print(sum(PathSuccess))
