@@ -18,6 +18,8 @@ except ImportError:
     raise ImportError("Run inside docker!!")
 
 from utils import geom2pix, ValidityChecker
+from generateMaps import generate_random_maps
+
 
 # All measurements are mentioned in meters
 # Define global parameters
@@ -58,12 +60,12 @@ def get_path(start, goal, ValidityCheckerObj=None):
     ss.setPlanner(planner)
 
     # Attempt to solve within the given time
-    time = 60
-    solved = ss.solve(60.0)
+    time = 2
+    solved = ss.solve(time)
     while not ss.haveExactSolutionPath():
-        solved = ss.solve(30.0)
-        time +=30
-        if time>1200:
+        solved = ss.solve(2.0)
+        time +=2
+        if time>10:
             break
     if ss.haveExactSolutionPath():
         success = True
@@ -120,8 +122,21 @@ def start_experiment_rrt(start, samples, fileDir=None):
 
         pickle.dump(path_param, open(osp.join(fileDir,f'path_{i}.p'), 'wb'))
 
-
+def start_map_collection_rrt(start, samples):
+    '''
+    Collect a single path for the given number of samples.
+    :param start: The start index of the samples.
+    :param samples: The number of samples to collect.
+    '''
+    for i in range(start, start+samples):
+        fileDir = f'/root/data/train2/env{i:06d}'
+        if not osp.isdir(fileDir):
+            os.mkdir(fileDir) 
+        fileName = osp.join(fileDir, f'map_{i}.png')
+        generate_random_maps(length=length, seed=i+200, fileName=fileName)
+        start_experiment_rrt(0, 10, fileDir=fileDir)
 
 if __name__ == "__main__":
     start, samples = int(sys.argv[1]), int(sys.argv[2])
-    start_experiment_rrt(start, samples, '/root/data/val')
+    # start_experiment_rrt(start, samples, '/root/data/val')
+    start_map_collection_rrt(start, samples)
