@@ -143,7 +143,7 @@ if __name__ == "__main__":
         optim.Adam(transformer.parameters(), betas=(0.9, 0.98), eps=1e-9),
         lr_mul = 0.5,
         d_model = 256,
-        n_warmup_steps = 4000
+        n_warmup_steps = 6000
     )
 
     # Training Data
@@ -156,7 +156,7 @@ if __name__ == "__main__":
     validationData = DataLoader(valDataset, num_workers=5, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Increase number of epochs.
-    n_epochs = 150
+    n_epochs = 300
     results = {}
     train_loss = []
     val_loss = []
