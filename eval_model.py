@@ -184,7 +184,8 @@ if __name__=="__main__":
     checkpoint = torch.load(osp.join(modelFolder, f'model_epoch_{epoch}.pkl'))
     transformer.load_state_dict(checkpoint['state_dict'])
 
-
+    # Only do evaluation
+    transformer.eval()
     # Get path data
     PathSuccess = []
     for env_num in range(start, start+200):
