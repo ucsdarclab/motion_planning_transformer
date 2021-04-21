@@ -145,6 +145,9 @@ class PathDataLoader(Dataset):
             for index in AnchorPointsPos:
                 if index in AnchorPointsNeg:
                     AnchorPointsNeg.remove(index)
+            # Match the size of the Positive and Negative samples
+            if len(AnchorPointsPos)< len(AnchorPointsNeg):
+                AnchorPointsNeg = np.random.choice(AnchorPointsNeg, size=len(AnchorPointsPos))
             
             anchor = torch.cat((torch.tensor(AnchorPointsPos), torch.tensor(AnchorPointsNeg)))
             labels = torch.zeros_like(anchor)
