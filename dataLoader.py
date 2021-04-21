@@ -50,17 +50,19 @@ def geom2pixMatpos(pos, res=0.05, size=(480, 480)):
     indices = np.where(np.linalg.norm(grid_points-pos, axis=1)<=receptive_field*res*0.7)
     return indices
 
-def geom2pixMatneg(pos, res=0.05, size=(480, 480)):
+def geom2pixMatneg(pos, res=0.05, size=(480, 480), num=1):
     """
     Find the nearest index of the discrete map state.
     :param pos: The (x,y) geometric co-ordinates.
     :param res: The distance represented by each pixel.
     :param size: The size of the map image
+    :param num: The number of random sample index to select.
     :returns (int, int): The associated pixel co-ordinates.
     """
     dist = np.linalg.norm(grid_points-pos, axis=1)
-    indices = np.where(np.logical_and(dist>receptive_field*res*0.3,dist<=receptive_field*res*1.5))
-    return indices
+    indices, = np.where(dist>receptive_field*res*0.7)
+    indices = np.random.choice(indices, size=num)
+    return indices,
 
 class PathDataLoader(Dataset):
     '''Loads each path, and extracts the masked positive and negative regions
