@@ -162,7 +162,7 @@ if __name__ == "__main__":
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/model12v4'
+    trainDataFolder  = '/root/data/model13'
     # Save the model parameters as .json file
     json.dump(
         model_args, 
