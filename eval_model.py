@@ -180,7 +180,7 @@ if __name__=="__main__":
 
     receptive_field=32
     # Load model parameters
-    epoch = 149
+    epoch = 29
     checkpoint = torch.load(osp.join(modelFolder, f'model_epoch_{epoch}.pkl'))
     transformer.load_state_dict(checkpoint['state_dict'])
 
