@@ -50,17 +50,19 @@ def geom2pixMatpos(pos, res=0.05, size=(480, 480)):
     indices = np.where(np.linalg.norm(grid_points-pos, axis=1)<=receptive_field*res*0.7)
     return indices
 
-def geom2pixMatneg(pos, res=0.05, size=(480, 480)):
+def geom2pixMatneg(pos, res=0.05, size=(480, 480), num=1):
     """
     Find the nearest index of the discrete map state.
     :param pos: The (x,y) geometric co-ordinates.
     :param res: The distance represented by each pixel.
     :param size: The size of the map image
+    :param num: The number of random sample index to select.
     :returns (int, int): The associated pixel co-ordinates.
     """
     dist = np.linalg.norm(grid_points-pos, axis=1)
-    indices = np.where(np.logical_and(dist>receptive_field*res*0.3,dist<=receptive_field*res*1.5))
-    return indices
+    indices, = np.where(dist>receptive_field*res*0.7)
+    indices = np.random.choice(indices, size=num)
+    return indices,
 
 class PathDataLoader(Dataset):
     '''Loads each path, and extracts the masked positive and negative regions
@@ -97,9 +99,9 @@ class PathDataLoader(Dataset):
         idx_env = int(idx//self.samples)
         idx_sample = int(idx-idx_env*self.samples)
         env = self.env_list[idx_env]
-        mapEnvg = skimage.io.imread(osp.join(self.dataFolder, f'env{env}', f'map_{env}.png'), as_gray=True)
+        mapEnvg = skimage.io.imread(osp.join(self.dataFolder, f'env{env:06d}', f'map_{env}.png'), as_gray=True)
         
-        with open(osp.join(self.dataFolder, f'env{env}', f'path_{idx_sample}.p'), 'rb') as f:
+        with open(osp.join(self.dataFolder, f'env{env:06d}', f'path_{idx_sample}.p'), 'rb') as f:
             data = pickle.load(f)
 
         if data['success']:
@@ -143,6 +145,9 @@ class PathDataLoader(Dataset):
             for index in AnchorPointsPos:
                 if index in AnchorPointsNeg:
                     AnchorPointsNeg.remove(index)
+            # Match the size of the Positive and Negative samples
+            if len(AnchorPointsPos)< len(AnchorPointsNeg):
+                AnchorPointsNeg = np.random.choice(AnchorPointsNeg, size=len(AnchorPointsPos))
             
             anchor = torch.cat((torch.tensor(AnchorPointsPos), torch.tensor(AnchorPointsNeg)))
             labels = torch.zeros_like(anchor)

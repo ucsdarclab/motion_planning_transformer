@@ -3,6 +3,7 @@
 docker run -it \
     -p $1:8800 \
     --gpus all \
+    --shm-size="4g"\
     -e DISPLAY=$DISPLAY \
     -e QT_X11_NO_MITSHM=1 \
     -v $XAUTH:/root/.Xauthority \

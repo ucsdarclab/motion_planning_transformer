@@ -101,6 +101,8 @@ def eval_epoch(model, validationData, device):
 
 
 import sys
+import json
+
 if __name__ == "__main__":
     batch_size = int(sys.argv[1])
     device = 'cpu'
@@ -114,8 +116,8 @@ if __name__ == "__main__":
 
     torch_seed = np.random.randint(low=0, high=1000)
     torch.manual_seed(torch_seed)
-
-    transformer = Models.Transformer(
+    
+    model_args = dict(
         n_layers=6, 
         n_heads=3, 
         d_k=512, 
@@ -128,6 +130,8 @@ if __name__ == "__main__":
         train_shape=[24, 24],
     )
     
+    transformer = Models.Transformer(**model_args)
+
     if torch.cuda.device_count() > 1:
         print("Using ", torch.cuda.device_count(), "GPUs")
         transformer = nn.DataParallel(transformer)
@@ -139,12 +143,12 @@ if __name__ == "__main__":
         optim.Adam(transformer.parameters(), betas=(0.9, 0.98), eps=1e-9),
         lr_mul = 0.5,
         d_model = 256,
-        n_warmup_steps = 4000
+        n_warmup_steps = 6000
     )
 
     # Training Data
     # shard_num = 0
-    trainDataset = PathDataLoader([1, 2, 3, 4, 5], samples=8000, dataFolder='/root/data')
+    trainDataset = PathDataLoader(list(range(1000)), samples=40, dataFolder='/root/data/train2')
     trainingData = DataLoader(trainDataset, num_workers=10, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Validation Data
@@ -152,13 +156,20 @@ if __name__ == "__main__":
     validationData = DataLoader(valDataset, num_workers=5, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Increase number of epochs.
-    n_epochs = 150
+    n_epochs = 300
     results = {}
     train_loss = []
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/model12'
+    trainDataFolder  = '/root/data/model13'
+    # Save the model parameters as .json file
+    json.dump(
+        model_args, 
+        open(osp.join(trainDataFolder, 'model_params.json'), 'w'),
+        sort_keys=True,
+        indent=4
+    )
     writer = SummaryWriter(log_dir=trainDataFolder)
     for n in range(n_epochs):
         train_total_loss, train_n_correct = train_epoch(transformer, trainingData, optimizer, device)
