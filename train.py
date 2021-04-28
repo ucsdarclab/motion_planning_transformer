@@ -148,21 +148,21 @@ if __name__ == "__main__":
 
     # Training Data
     # shard_num = 0
-    trainDataset = PathDataLoader(list(range(1000)), samples=40, dataFolder='/root/data/train2')
+    trainDataset = PathDataLoader(list(range(900)), samples=25, dataFolder='/root/data/maze/train')
     trainingData = DataLoader(trainDataset, num_workers=10, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Validation Data
-    valDataset = PathDataLoader([1, 2, 3, 4, 5], samples=800, dataFolder='/root/data/val')
+    valDataset = PathDataLoader(list(range(900, 1000)), samples=25, dataFolder='/root/data/maze/val')
     validationData = DataLoader(valDataset, num_workers=5, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Increase number of epochs.
-    n_epochs = 300
+    n_epochs = 50
     results = {}
     train_loss = []
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/model13'
+    trainDataFolder  = '/root/data/model14'
     # Save the model parameters as .json file
     json.dump(
         model_args, 
