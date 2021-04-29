@@ -25,7 +25,7 @@ import webdataset as wds
 from torch.utils.tensorboard import SummaryWriter
 
 
-def focal_loss(predVals, trueLabels, gamma, eps=1e0-8):
+def focal_loss(predVals, trueLabels, gamma, eps=1e-8):
     '''
     A function to calculate the focal loss as mentioned in 
     https://arxiv.org/pdf/1708.02002.pdf
