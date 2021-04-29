@@ -41,7 +41,7 @@ def focal_loss(predVals, trueLabels, gamma, eps=1e-8):
 
     weight = torch.pow(-input_soft + 1., gamma)
     focal = -weight*torch.log(input_soft)
-    loss = torch.sum(target_one_hot*focal, dim=1).mean()
+    loss = torch.sum(target_one_hot*focal, dim=1).sum()
     return loss
 
 def cal_performance(predVals, anchorPoints, trueLabels, lengths):
@@ -55,6 +55,7 @@ def cal_performance(predVals, anchorPoints, trueLabels, lengths):
     '''
     n_correct = 0
     total_loss = 0
+    num = 0
     for predVal, anchorPoint, trueLabel, length in zip(predVals, anchorPoints, trueLabels, lengths):
         predVal = predVal.index_select(0, anchorPoint[:length])
         # loss = F.cross_entropy(predVal, trueLabel[:length])
@@ -62,6 +63,8 @@ def cal_performance(predVals, anchorPoints, trueLabels, lengths):
         total_loss += loss
         classPred = predVal.max(1)[1]
         n_correct +=classPred.eq(trueLabel[:length]).sum().item()/length
+        num+=1
+    total_loss = total_loss/num
     return total_loss, n_correct
 
 def train_epoch(model, trainingData, optimizer, device):
@@ -169,11 +172,11 @@ if __name__ == "__main__":
     # Training Data
     # shard_num = 0
     trainDataset = PathDataLoader(list(range(900)), samples=25, dataFolder='/root/data/maze/train')
-    trainingData = DataLoader(trainDataset, num_workers=10, batch_size=batch_size, collate_fn=PaddedSequence)
+    trainingData = DataLoader(trainDataset, num_workers=10, shuffle=True, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Validation Data
     valDataset = PathDataLoader(list(range(900, 1000)), samples=25, dataFolder='/root/data/maze/val')
-    validationData = DataLoader(valDataset, num_workers=5, batch_size=batch_size, collate_fn=PaddedSequence)
+    validationData = DataLoader(valDataset, num_workers=5, shuffle=True, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Increase number of epochs.
     n_epochs = 50
