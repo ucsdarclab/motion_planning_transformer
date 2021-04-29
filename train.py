@@ -25,6 +25,25 @@ import webdataset as wds
 from torch.utils.tensorboard import SummaryWriter
 
 
+def focal_loss(predVals, trueLabels, gamma, eps=1e0-8):
+    '''
+    A function to calculate the focal loss as mentioned in 
+    https://arxiv.org/pdf/1708.02002.pdf
+    :param predVals: The output of the final linear layer.
+    :param trueLabels: The true labels
+    :param gamma: The hyperparameter of the loss function
+    :param eps: A scalar value to enforce numerical stability.
+    :returns float: The loss value
+    '''
+    input_softmax = F.softmax(predVals, dim=1) + eps
+    target_one_hot = torch.zeros((trueLabels.shape[0], 2), device=trueLabels.device)
+    target_one_hot.scatter_(1, trueLabels.unsqueeze(1), 1.0)
+
+    weight = torch.pow(-input_soft + 1., gamma)
+    focal = -weight*torch.log(input_soft)
+    loss = torch.sum(target_one_hot*focal, dim=1).mean()
+    return loss
+
 def cal_performance(predVals, anchorPoints, trueLabels, lengths):
     '''
     Return the loss and number of correct predictions.
@@ -38,7 +57,8 @@ def cal_performance(predVals, anchorPoints, trueLabels, lengths):
     total_loss = 0
     for predVal, anchorPoint, trueLabel, length in zip(predVals, anchorPoints, trueLabels, lengths):
         predVal = predVal.index_select(0, anchorPoint[:length])
-        loss = F.cross_entropy(predVal, trueLabel[:length])
+        # loss = F.cross_entropy(predVal, trueLabel[:length])
+        loss = focal_loss(predVal, trueLabel, gamma=2)
         total_loss += loss
         classPred = predVal.max(1)[1]
         n_correct +=classPred.eq(trueLabel[:length]).sum().item()/length
