@@ -35,7 +35,7 @@ def focal_loss(predVals, trueLabels, gamma, eps=1e0-8):
     :param eps: A scalar value to enforce numerical stability.
     :returns float: The loss value
     '''
-    input_softmax = F.softmax(predVals, dim=1) + eps
+    input_soft = F.softmax(predVals, dim=1) + eps
     target_one_hot = torch.zeros((trueLabels.shape[0], 2), device=trueLabels.device)
     target_one_hot.scatter_(1, trueLabels.unsqueeze(1), 1.0)
 
