@@ -131,23 +131,15 @@ class PathDataLoader(Dataset):
             mapEncoder = np.concatenate((mapEnvg[None, :], context_map[None, :]), axis=0)
 
             AnchorPointsPos = []
-            AnchorPointsNeg = []
             for pos in path:
                 indices, = geom2pixMatpos(pos)
                 for index in indices:
                     if index not in AnchorPointsPos:
                         AnchorPointsPos.append(index)
-                indices, = geom2pixMatneg(pos)
-                for index in indices:
-                    if index not in AnchorPointsNeg:
-                        AnchorPointsNeg.append(index)
-            # Remove all positive anchor points from negative samples
-            for index in AnchorPointsPos:
-                if index in AnchorPointsNeg:
-                    AnchorPointsNeg.remove(index)
-            # Match the size of the Positive and Negative samples
-            if len(AnchorPointsPos)< len(AnchorPointsNeg):
-                AnchorPointsNeg = np.random.choice(AnchorPointsNeg, size=len(AnchorPointsPos))
+            numBackgroundSamp = len(AnchorPointsPos)*4
+
+            backgroundPoints = list(set(range(len(hashTable)))-set(AnchorPointsPos))
+            AnchorPointsNeg = np.random.rand(backgroundPoints, size=numBackgroundSamp, replace=False).tolist()
             
             anchor = torch.cat((torch.tensor(AnchorPointsPos), torch.tensor(AnchorPointsNeg)))
             labels = torch.zeros_like(anchor)
