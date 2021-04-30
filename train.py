@@ -166,7 +166,7 @@ if __name__ == "__main__":
         optim.Adam(transformer.parameters(), betas=(0.9, 0.98), eps=1e-9),
         lr_mul = 0.5,
         d_model = 256,
-        n_warmup_steps = 6000
+        n_warmup_steps = 6400
     )
 
     # Training Data
