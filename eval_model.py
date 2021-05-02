@@ -159,8 +159,11 @@ device='cuda' if torch.cuda.is_available() else 'cpu'
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--modelFolder', help='Directory where model_params.json exists', required=True)
+    parser.add_argument('--valDataFolder', help='Directory where training data exists', required=True)
     # parser.add_argument('--envNum', help='Environment number to validate model', required=True)
-    parser.add_argument('--start')
+    parser.add_argument('--start', help='Start of environment number', required=True, type=int)
+    parser.add_argument('--epoch', help='Model epoch number to test', required=True, type=int)
+    parser.add_argument('--numPaths', help='Number of start and goal pairs for each env', default=1, type=int)
 
     args = parser.parse_args()
 
@@ -169,7 +172,7 @@ if __name__=="__main__":
     assert osp.isfile(modelFile), f"Cannot find the model_params.json file in {modelFolder}"
 
     # env_num = args.envNum
-    start = int(args.start)
+    start = args.start
 
     model_param = json.load(open(modelFile))
     transformer = Models.Transformer(
@@ -180,21 +183,24 @@ if __name__=="__main__":
 
     receptive_field=32
     # Load model parameters
-    epoch = 29
+    epoch = args.epoch
     checkpoint = torch.load(osp.join(modelFolder, f'model_epoch_{epoch}.pkl'))
     transformer.load_state_dict(checkpoint['state_dict'])
 
+    # valDataFolder
+    # /root/data/maze/val
+    valDataFolder = args.valDataFolder
     # Only do evaluation
     transformer.eval()
     # Get path data
     PathSuccess = []
-    for env_num in range(start, start+200):
-        temp_map =  f'/root/data/val2/env{env_num:06d}/map_{env_num}.png'
+    for env_num in range(start, start+20):
+        temp_map =  osp.join(valDataFolder, f'env{env_num:06d}/map_{env_num}.png')
         small_map = skimage.io.imread(temp_map, as_gray=True)
 
-        for pathNum in range(1):
+        for pathNum in range(args.numPaths):
         # pathNum = 0
-            pathFile = f'/root/data/val2/env{env_num:06d}/path_{pathNum}.p'
+            pathFile = osp.join(valDataFolder, f'env{env_num:06d}/path_{pathNum}.p')
             data = pickle.load(open(pathFile, 'rb'))
             path = data['path_interpolated']
 
@@ -224,5 +230,5 @@ if __name__=="__main__":
             else:
                 PathSuccess.append(False)
 
-    pickle.dump(PathSuccess, open(osp.join(modelFolder, f'eval_unknown_plan_{start:06d}.p'), 'wb'))
+    pickle.dump(PathSuccess, open(osp.join(modelFolder, f'eval_val_plan_{start:06d}.p'), 'wb'))
     print(sum(PathSuccess))
