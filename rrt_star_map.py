@@ -19,7 +19,9 @@ except ImportError:
 
 from utils import geom2pix, ValidityChecker
 from generateMaps import generate_random_maps
+from generateMazeMaps import generate_random_maze
 
+import argparse
 
 # All measurements are mentioned in meters
 # Define global parameters
@@ -60,12 +62,12 @@ def get_path(start, goal, ValidityCheckerObj=None):
     ss.setPlanner(planner)
 
     # Attempt to solve within the given time
-    time = 2
+    time = 4
     solved = ss.solve(time)
     while not ss.haveExactSolutionPath():
         solved = ss.solve(2.0)
-        time +=2
-        if time>10:
+        time +=3
+        if time>90:
             break
     if ss.haveExactSolutionPath():
         success = True
@@ -75,7 +77,9 @@ def get_path(start, goal, ValidityCheckerObj=None):
             for i in range(ss.getSolutionPath().getStateCount())
             ]
         # Define path
-        ss.getSolutionPath().interpolate(100)
+        # Get the number of interpolation points
+        num_points = int(4*ss.getSolutionPath().length()//(dist_resl*32))
+        ss.getSolutionPath().interpolate(num_points)
         path_obj = ss.getSolutionPath()
         path_interpolated = np.array([
             [path_obj.getState(i)[0], path_obj.getState(i)[1]] 
@@ -122,21 +126,34 @@ def start_experiment_rrt(start, samples, fileDir=None):
 
         pickle.dump(path_param, open(osp.join(fileDir,f'path_{i}.p'), 'wb'))
 
-def start_map_collection_rrt(start, samples):
+def start_map_collection_rrt(start, samples, envType, numPaths, fileDir):
     '''
     Collect a single path for the given number of samples.
     :param start: The start index of the samples.
     :param samples: The number of samples to collect.
+    :param envType: The type of environment to set up.
+    :param numPaths: The number of paths to collect for each environment.
+    :param fileDir: The directory to save the paths
     '''
     for i in range(start, start+samples):
-        fileDir = f'/root/data/train2/env{i:06d}'
-        if not osp.isdir(fileDir):
-            os.mkdir(fileDir) 
-        fileName = osp.join(fileDir, f'map_{i}.png')
-        generate_random_maps(length=length, seed=i+200, fileName=fileName)
-        start_experiment_rrt(0, 10, fileDir=fileDir)
+        envFileDir = osp.join(fileDir, f'env{i:06d}')
+        if not osp.isdir(envFileDir):
+            os.mkdir(envFileDir)
+        fileName = osp.join(envFileDir, f'map_{i}.png')
+        if envType=='forest':
+            generate_random_maps(length=length, seed=i+200, fileName=fileName)
+        if envType=='maze':
+            generate_random_maze(length=length, seed=i, fileName=fileName)
+        start_experiment_rrt(0, numPaths, fileDir=envFileDir)
 
 if __name__ == "__main__":
-    start, samples = int(sys.argv[1]), int(sys.argv[2])
-    # start_experiment_rrt(start, samples, '/root/data/val')
-    start_map_collection_rrt(start, samples)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--start', help='Start of the sample index', required=True, type=int)
+    parser.add_argument('--samples', help='Number of samples to collect', required=True, type=int)
+    parser.add_argument('--envType', help='Type of environment', choices=['maze', 'forest'])
+    parser.add_argument('--numPaths', help='Number of paths to collect', default=1, type=int)
+    parser.add_argument('--fileDir', help='The Folder to save the files', required=True)
+
+    args = parser.parse_args()
+
+    start_map_collection_rrt(args.start, args.samples, args.envType, args.numPaths, args.fileDir)
