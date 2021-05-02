@@ -14,5 +14,9 @@ do
 	    -v ~/global_planner:/root/global_planner \
 	    -v ~/global_planner_data:/root/data \
 	    ompl-global \
-	    python3 rrt_star_map.py $((CID*SAMPLES)) $SAMPLES
+	    python3 rrt_star_map.py \
+			--start=$((CID*SAMPLES)) \
+			--samples=$SAMPLES \
+			--envType=forest \
+			--fileDir=/root/data/test_dir
 done
