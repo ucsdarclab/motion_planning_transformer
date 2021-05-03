@@ -58,8 +58,8 @@ def cal_performance(predVals, anchorPoints, trueLabels, lengths):
     num = 0
     for predVal, anchorPoint, trueLabel, length in zip(predVals, anchorPoints, trueLabels, lengths):
         predVal = predVal.index_select(0, anchorPoint[:length])
-        # loss = F.cross_entropy(predVal, trueLabel[:length])
-        loss = focal_loss(predVal, trueLabel[:length], gamma=2)
+        loss = F.cross_entropy(predVal, trueLabel[:length])
+        # loss = focal_loss(predVal, trueLabel[:length], gamma=2)
         total_loss += loss
         classPred = predVal.max(1)[1]
         n_correct +=classPred.eq(trueLabel[:length]).sum().item()/length
