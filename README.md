@@ -1,22 +1,22 @@
 # TODO:
-2. Generate map's of varying complexetiy.
-		2. Maybe add star shaped objects?
-3. Set up architecture for MHA for just encoder model.
-	1. Model architecture.
-		1. ~~Function to map attention layer outputs to input map regions.~~
-	2. ~~Set up training data.~~
-	3. ~~Set up cost function.~~
-		1. ~~Modify code to make predictions~~
-	2. ~~Model start and goal position.~~
-	3. ~~Position Encoding for larger images.~~
-4. ~~Extracting path from the given set of predictions.~~
-5. ~~Calculating the probability of existence of path from the given map.~~
+1. Training model for the maze environment:
+	1. ~~Train model with higher Gamma value.~~
+	2. Model15 - gamma value of 4.
+	3. Model16 - gamma value of 6.
+2. Check training and testing code.
+	1. Correct the patch encoding code.
+3. Set up code on unicorn2
+2. Training with hard mining:
+	1. ~~Visualize the distribution of path patches to background~~
+	3. Validate training/planning code
+	4. Evaluate positional encoding
+	4. Set up hard mining training
+	5. Different training strategy
+3. Try models with different depths
+4. Remove position encoding, and test to see if we obtain similar results.
+3. Evaluate the model 15, 16 models for planning	
+3. Investigate the reason behind correlation in the dataset.
+4. Using some form of self-supervision to train network.
+	1. Maps can be rotated/cropped and there should be no change in planned path.
 6. Planning on a map with different sizes.
-	1. ~~Write a new position encoder~~
-	2. ~~Test the position encoder.~~
-7. ~~Train the dataset.~~
-8. Testing on totally different maps with similar obstacles:
-	1. Evaluate model5 on totally different map with same size.
-	2. Maybe test model4 also?
 4. Visualize the self-attention among the patches.
-3. Add mixed precision training (after stable model)
