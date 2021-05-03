@@ -64,6 +64,37 @@ def geom2pixMatneg(pos, res=0.05, size=(480, 480), num=1):
     indices = np.random.choice(indices, size=num)
     return indices,
 
+def get_encoder_input(InputMap, goal_pos, start_pos):
+    '''
+    Returns the input map appended with the goal, and start position encoded.
+    :param InputMap: The grayscale map
+    :param goal_pos: The goal pos of the robot on the costmap.
+    :param start_pos: The start pos of the robot on the costmap.
+    :returns np.array: The map concatentated with the encoded start and goal pose.
+    '''
+    map_size = InputMap.shape
+    assert len(map_size) == 2, "This only works for 2D maps"
+    
+    context_map = np.zeros(map_size)
+    goal_start_x = max(0, goal_pos[0]- receptive_field//2)
+    goal_start_y = max(0, goal_pos[1]- receptive_field//2)
+    goal_end_x = min( map_size[0], goal_pos[0]+ receptive_field//2)
+    goal_end_y = min( map_size[1], goal_pos[1]+ receptive_field//2)
+    # TODO:  There is an error in the context map here,  
+    # where the x and y axis are switched. But the model seems to learn
+    # from this representation too.
+    context_map[goal_start_x:goal_end_x, goal_start_y:goal_end_y] = 1.0
+    # Mark start region
+    start_start_x = max(0, start_pos[0]- receptive_field//2)
+    start_start_y = max(0, start_pos[1]- receptive_field//2)
+    start_end_x = min( map_size[0], start_pos[0]+ receptive_field//2)
+    start_end_y = min( map_size[1], start_pos[1]+ receptive_field//2)
+    # TODO:  There is an error in the context map here,  
+    # where the x and y axis are switched. But the model seems to learn
+    # from this representation too.
+    context_map[start_start_x:start_end_x, start_start_y:start_end_y] = -1.0
+    return torch.as_tensor(np.concatenate((InputMap[None, :], context_map[None, :])))
+
 class PathDataLoader(Dataset):
     '''Loads each path, and extracts the masked positive and negative regions
     '''
@@ -107,28 +138,9 @@ class PathDataLoader(Dataset):
         if data['success']:
             path = data['path_interpolated']
             # Mark goal region
-            context_map = np.zeros(mapEnvg.shape)
             goal_index = geom2pix(path[-1, :])
-            goal_start_x = max(0, goal_index[0]- receptive_field//2)
-            goal_start_y = max(0, goal_index[1]- receptive_field//2)
-            goal_end_x = min( map_size[0], goal_index[0]+ receptive_field//2)
-            goal_end_y = min( map_size[1], goal_index[1]+ receptive_field//2)
-            # TODO:  There is an error in the context map here,  
-            # where the x and y axis are switched. But the model seems to learn
-            # from this representation too.
-            context_map[goal_start_x:goal_end_x, goal_start_y:goal_end_y] = 1.0
-            # Mark start region
             start_index = geom2pix(path[0, :])
-            start_start_x = max(0, start_index[0]- receptive_field//2)
-            start_start_y = max(0, start_index[1]- receptive_field//2)
-            start_end_x = min( map_size[0], start_index[0]+ receptive_field//2)
-            start_end_y = min( map_size[1], start_index[1]+ receptive_field//2)
-            # TODO:  There is an error in the context map here,  
-            # where the x and y axis are switched. But the model seems to learn
-            # from this representation too.
-            context_map[start_start_x:start_end_x, start_start_y:start_end_y] = -1.0
-
-            mapEncoder = np.concatenate((mapEnvg[None, :], context_map[None, :]), axis=0)
+            mapEncoder = get_encoder_input(mapEnvg, goal_index, start_index)            
 
             AnchorPointsPos = []
             for pos in path:

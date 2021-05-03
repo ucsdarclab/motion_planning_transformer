@@ -22,6 +22,7 @@ except ImportError:
 
 from transformer import Models
 from utils import geom2pix, ValidityChecker
+from dataLoader import get_encoder_input
 
 res = 0.05
 length = 24
@@ -38,36 +39,8 @@ def pix2geom(pos, res=0.05, length=24):
     return (pos[0]*res, length-pos[1]*res)
 
 
-def get_encoder_input(InputMap, goal_pos, start_pos):
-    '''
-    Returns the input map appended with the goal, and start position encoded.
-    :param InputMap: The grayscale map
-    :param goal_pos: The goal pos of the robot on the costmap.
-    :param start_pos: The start pos of the robot on the costmap.
-    :returns np.array: The map concatentated with the encoded start and goal pose.
-    '''
-    map_size = InputMap.shape
-    assert len(map_size) == 2, "This only works for 2D maps"
-    
-    context_map = np.zeros(map_size)
-    goal_start_x = max(0, goal_pos[0]- receptive_field//2)
-    goal_start_y = max(0, goal_pos[1]- receptive_field//2)
-    goal_end_x = min( map_size[0], goal_pos[0]+ receptive_field//2)
-    goal_end_y = min( map_size[1], goal_pos[1]+ receptive_field//2)
-    context_map[goal_start_x:goal_end_x, goal_start_y:goal_end_y] = 1.0
-    # Mark start region
-    start_start_x = max(0, start_pos[0]- receptive_field//2)
-    start_start_y = max(0, start_pos[1]- receptive_field//2)
-    start_end_x = min( map_size[0], start_pos[0]+ receptive_field//2)
-    start_end_y = min( map_size[1], start_pos[1]+ receptive_field//2)
-    context_map[start_start_x:start_end_x, start_start_y:start_end_y] = -1.0
-    return torch.as_tensor(np.concatenate((InputMap[None, :], context_map[None, :])))
-
-
 receptive_field = 32
 hashTable = [(20*r+4, 20*c+4) for c in range(24) for r in range(24)]
-
-
 
 # Planning parameters
 space = ob.RealVectorStateSpace(2)
