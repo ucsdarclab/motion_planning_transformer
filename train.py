@@ -163,12 +163,12 @@ if __name__ == "__main__":
         optim.Adam(transformer.parameters(), betas=(0.9, 0.98), eps=1e-9),
         lr_mul = 0.5,
         d_model = 256,
-        n_warmup_steps = 12800
+        n_warmup_steps = 3200
     )
 
     # Training Data
     # shard_num = 0
-    trainDataset = PathDataLoader(list(range(900)), samples=25, dataFolder='/root/data/maze/train')
+    trainDataset = PathDataLoader(list(range(450)), samples=25, dataFolder='/root/data/maze/train')
     trainingData = DataLoader(trainDataset, num_workers=10, shuffle=True, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Validation Data
@@ -176,7 +176,7 @@ if __name__ == "__main__":
     validationData = DataLoader(valDataset, num_workers=5, shuffle=True, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Increase number of epochs.
-    n_epochs = 50
+    n_epochs = 75
     results = {}
     train_loss = []
     val_loss = []
