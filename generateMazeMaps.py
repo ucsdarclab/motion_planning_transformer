@@ -147,7 +147,7 @@ def generate_random_maze(length, wt=0.375, pw=1.2, dist_resl=0.05,seed=1, fileNa
     '''
     
     ch = cw = wt*2 + pw
-    nx = ny = int((length-wt)//(pw+wt))
+    nx = ny = int((length-wt)/(pw+wt))
 
     random.seed(seed)
     ix, iy = random.randint(0, nx-1),  random.randint(0, ny-1)

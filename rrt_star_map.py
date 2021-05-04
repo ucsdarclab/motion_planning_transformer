@@ -143,7 +143,7 @@ def start_map_collection_rrt(start, samples, envType, numPaths, fileDir):
         if envType=='forest':
             generate_random_maps(length=length, seed=i+200, fileName=fileName)
         if envType=='maze':
-            generate_random_maze(length=length, seed=i, fileName=fileName)
+            generate_random_maze(length=length, wt=0.75, pw=0.8, seed=i, fileName=fileName)
         start_experiment_rrt(0, numPaths, fileDir=envFileDir)
 
 if __name__ == "__main__":
