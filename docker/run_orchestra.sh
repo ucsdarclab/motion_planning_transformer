@@ -1,7 +1,7 @@
 #!/bin/bash
 # A script to run ompl-docker
-SAMPLES=40
-for CID in {0..24..1}
+SAMPLES=20
+for CID in {0..14..1}
 do
 	docker run -d \
 	    --rm \
@@ -17,6 +17,7 @@ do
 	    python3 rrt_star_map.py \
 			--start=$((CID*SAMPLES)) \
 			--samples=$SAMPLES \
-			--envType=forest \
-			--fileDir=/root/data/test_dir
+			--envType=maze \
+			--fileDir=/root/data/maze2/train \
+			--numPaths=25 
 done
