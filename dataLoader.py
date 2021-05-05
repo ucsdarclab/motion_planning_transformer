@@ -93,7 +93,7 @@ class PathDataLoader(Dataset):
     '''Loads each path, and extracts the masked positive and negative regions
     '''
 
-    def __init__(self, env_list, samples, dataFolder):
+    def __init__(self, env_list, dataFolder):
         '''
         :param env_list: The list of map environments to collect data from.
         :param samples: The number of paths to use from each folder.
@@ -107,23 +107,23 @@ class PathDataLoader(Dataset):
         '''
         assert isinstance(env_list, list), "Needs to be a list"
         self.num_env = len(env_list)
-        self.samples = samples
         self.env_list = env_list
+        self.indexDict = [(envNum, i) 
+            for envNum in env_list 
+                for i in range(len(os.listdir(osp.join(dataFolder, f'env{envNum:06d}')))-1)
+            ]
         self.dataFolder = dataFolder
     
 
     def __len__(self):
-        return self.num_env*self.samples
-
+        return len(self.indexDict)
     
     def __getitem__(self, idx):
         '''
         Returns the sample at index idx.
         returns dict: A dictonary of the encoded map and target points.
         '''
-        idx_env = int(idx//self.samples)
-        idx_sample = int(idx-idx_env*self.samples)
-        env = self.env_list[idx_env]
+        env, idx_sample = self.indexDict[idx]
         mapEnvg = skimage.io.imread(osp.join(self.dataFolder, f'env{env:06d}', f'map_{env}.png'), as_gray=True)
         
         with open(osp.join(self.dataFolder, f'env{env:06d}', f'path_{idx_sample}.p'), 'rb') as f:
