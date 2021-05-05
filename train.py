@@ -18,7 +18,7 @@ from tqdm import tqdm
 from os import path as osp
 
 from transformer import Models, Optim
-from dataLoader import PathDataLoader, PaddedSequence
+from dataLoader import PathDataLoader, PaddedSequence, PathHardMineDataLoader
 from utils import png_decoder, cls_decoder
 import webdataset as wds
 
@@ -168,11 +168,25 @@ if __name__ == "__main__":
 
     # Training Data
     # shard_num = 0
-    trainDataset = PathDataLoader(list(range(450)), samples=25, dataFolder='/root/data/maze/train')
-    trainingData = DataLoader(trainDataset, num_workers=10, shuffle=True, batch_size=batch_size, collate_fn=PaddedSequence)
+    # Easy Training Data
+    easyBatchSize = int(0.75*batch_size)
+    hardBatchSize = batch_size-easyBatchSize
+    trainDataset = PathHardMineDataLoader(list(range(100)), dataFolderEasy='/root/data/maze/train_easy', dataFolderHard='/root/data/maze/train_hard')
+    from toolz.itertoolz import partition, concat
+    Eg = list(partition(easyBatchSize, trainDataset.indexDictEasy))
+    Eh = list(partition(hardBatchSize, trainDataset.indexDictHard))
+    batch_sampler = [list(concat([Egi, Ehi])) for Egi, Ehi in zip(Eg,Eh)]
+    trainingData = DataLoader(trainDataset, num_workers=10, batch_sampler=batch_sampler, collate_fn=PaddedSequence)
+    # trainDatasetEasy = PathDataLoader(list(range(100)), dataFolder='/root/data/maze/train_easy')
+    # trainingDataEasy = DataLoader(trainDatasetEasy, num_workers=10, shuffle=True, batch_size=easyBatchSize, collate_fn=PaddedSequence)
+
+    # # Hard Training Data
+    # hardBatchSize = batch_size-easyBatchSize
+    # trainDatasetHard = PathDataLoader(list(range(100)), dataFolder='/root/data/maze/train_hard')
+    # trainingDataHard = DataLoader(trainDatasetHard, num_workers=10, shuffle=True, batch_size=hardBatchSize, collate_fn=PaddedSequence)
 
     # Validation Data
-    valDataset = PathDataLoader(list(range(900, 1000)), samples=25, dataFolder='/root/data/maze/val')
+    valDataset = PathDataLoader(list(range(900, 910)), dataFolder='/root/data/maze/val')
     validationData = DataLoader(valDataset, num_workers=5, shuffle=True, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Increase number of epochs.
