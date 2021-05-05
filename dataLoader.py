@@ -8,6 +8,7 @@ import skimage.io
 import pickle
 import numpy as np
 
+import os
 from os import path as osp
 from einops import rearrange
 
@@ -127,6 +128,82 @@ class PathDataLoader(Dataset):
         mapEnvg = skimage.io.imread(osp.join(self.dataFolder, f'env{env:06d}', f'map_{env}.png'), as_gray=True)
         
         with open(osp.join(self.dataFolder, f'env{env:06d}', f'path_{idx_sample}.p'), 'rb') as f:
+            data = pickle.load(f)
+
+        if data['success']:
+            path = data['path_interpolated']
+            # Mark goal region
+            goal_index = geom2pix(path[-1, :])
+            start_index = geom2pix(path[0, :])
+            mapEncoder = get_encoder_input(mapEnvg, goal_index, start_index)            
+
+            AnchorPointsPos = []
+            for pos in path:
+                indices, = geom2pixMatpos(pos)
+                for index in indices:
+                    if index not in AnchorPointsPos:
+                        AnchorPointsPos.append(index)
+
+            backgroundPoints = list(set(range(len(hashTable)))-set(AnchorPointsPos))
+            numBackgroundSamp = min(len(backgroundPoints), len(AnchorPointsPos)*4)
+            AnchorPointsNeg = np.random.choice(backgroundPoints, size=numBackgroundSamp, replace=False).tolist()
+            
+            anchor = torch.cat((torch.tensor(AnchorPointsPos), torch.tensor(AnchorPointsNeg)))
+            labels = torch.zeros_like(anchor)
+            labels[:len(AnchorPointsPos)] = 1
+            return {
+                'map':torch.as_tensor(mapEncoder), 
+                'anchor':anchor, 
+                'labels':labels
+            }
+
+
+class PathHardMineDataLoader(Dataset):
+    '''Loads each path, and extracts the masked positive and negative regions.
+    The data is indexed in such a way that "hard" planning problems are equally distributed
+    uniformly throughout the dataloading process.
+    '''
+
+    def __init__(self, env_list, dataFolderHard, dataFolderEasy):
+        '''
+        :param env_list: The list of map environments to collect data from.
+        :param samples: The number of paths to use from each folder.
+        :param dataFolderHard: The parent folder where the Hard path files are located.
+        :param dataFodlerEasy: The parent folder where the Easy path fiies are located.
+            It should follow the following format:
+                env1/path_0.p
+                    ...
+                env2/path_0.p
+                    ...
+                    ...
+        '''
+        assert isinstance(env_list, list), "Needs to be a list"
+        self.num_env = len(env_list)
+        self.env_list = env_list
+        self.indexDictHard = [('H', envNum, i) 
+            for envNum in env_list 
+                for i in range(len(os.listdir(osp.join(dataFolderHard, f'env{envNum:06d}')))-1)
+            ]
+        self.indexDictEasy = [('E', envNum, i) 
+            for envNum in env_list 
+                for i in range(len(os.listdir(osp.join(dataFolderEasy, f'env{envNum:06d}')))-1)
+            ]
+        self.dataFolder = {'E': dataFolderEasy, 'H':dataFolderHard}
+    
+
+    def __len__(self):
+        return len(self.indexDictEasy)+len(self.indexDictHard)
+    
+    def __getitem__(self, idx):
+        '''
+        Returns the sample at index idx.
+        returns dict: A dictonary of the encoded map and target points.
+        '''
+        DF, env, idx_sample = idx
+        dataFolder = self.dataFolder[DF]
+        mapEnvg = skimage.io.imread(osp.join(dataFolder, f'env{env:06d}', f'map_{env}.png'), as_gray=True)
+        
+        with open(osp.join(dataFolder, f'env{env:06d}', f'path_{idx_sample}.p'), 'rb') as f:
             data = pickle.load(f)
 
         if data['success']:
