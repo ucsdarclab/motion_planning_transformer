@@ -171,7 +171,7 @@ if __name__ == "__main__":
     # Easy Training Data
     easyBatchSize = int(0.75*batch_size)
     hardBatchSize = batch_size-easyBatchSize
-    trainDataset = PathHardMineDataLoader(list(range(100)), dataFolderEasy='/root/data/maze/train_easy', dataFolderHard='/root/data/maze/train_hard')
+    trainDataset = PathHardMineDataLoader(list(range(900)), dataFolderEasy='/root/data/maze/train_easy', dataFolderHard='/root/data/maze/train_hard')
     from toolz.itertoolz import partition, concat
     Eg = list(partition(easyBatchSize, trainDataset.indexDictEasy))
     Eh = list(partition(hardBatchSize, trainDataset.indexDictHard))
@@ -186,7 +186,7 @@ if __name__ == "__main__":
     # trainingDataHard = DataLoader(trainDatasetHard, num_workers=10, shuffle=True, batch_size=hardBatchSize, collate_fn=PaddedSequence)
 
     # Validation Data
-    valDataset = PathDataLoader(list(range(900, 910)), dataFolder='/root/data/maze/val')
+    valDataset = PathDataLoader(list(range(900, 1000)), dataFolder='/root/data/maze/val')
     validationData = DataLoader(valDataset, num_workers=5, shuffle=True, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Increase number of epochs.
@@ -196,7 +196,7 @@ if __name__ == "__main__":
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/model15'
+    trainDataFolder  = '/root/data/model26'
     # Save the model parameters as .json file
     json.dump(
         model_args, 
