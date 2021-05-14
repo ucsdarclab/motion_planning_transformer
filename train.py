@@ -180,7 +180,7 @@ if __name__ == "__main__":
 
     # Load dataset without hardmining
     trainDataset = PathDataLoader(list(range(750)), dataFolder='/root/data/maze3/train')
-    trainingData = DataLoader(trainDataset, num_workers=10, shuffle=True, batch_size=batch_size)
+    trainingData = DataLoader(trainDataset, num_workers=10, shuffle=True, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Validation Data
     valDataset = PathDataLoader(list(range(900, 1000)), dataFolder='/root/data/maze3/val')
