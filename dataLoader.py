@@ -145,7 +145,7 @@ class PathDataLoader(Dataset):
                         AnchorPointsPos.append(index)
 
             backgroundPoints = list(set(range(len(hashTable)))-set(AnchorPointsPos))
-            numBackgroundSamp = min(len(backgroundPoints), len(AnchorPointsPos)*4)
+            numBackgroundSamp = min(len(backgroundPoints), len(AnchorPointsPos))
             AnchorPointsNeg = np.random.choice(backgroundPoints, size=numBackgroundSamp, replace=False).tolist()
             
             anchor = torch.cat((torch.tensor(AnchorPointsPos), torch.tensor(AnchorPointsNeg)))
