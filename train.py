@@ -57,9 +57,12 @@ def cal_performance(predVals, anchorPoints, trueLabels, lengths):
     total_loss = 0
     for predVal, anchorPoint, trueLabel, length in zip(predVals, anchorPoints, trueLabels, lengths):
         predVal = predVal.index_select(0, anchorPoint[:length])
-        loss = F.cross_entropy(predVal, trueLabel[:length])
-        # loss = focal_loss(predVal, trueLabel[:length], gamma=2)
-        total_loss += loss
+        trueLabel = trueLabel[:length]
+        pathIndex = trueLabel==1
+        lossPath = F.cross_entropy(predVal[pathIndex, :], trueLabel[pathIndex])
+        backIndex = trueLabel==0
+        lossBack = focal_loss(predVal[backIndex, :], trueLabel[backIndex], gamma=2)
+        total_loss += lossPath + lossBack
         classPred = predVal.max(1)[1]
         n_correct +=classPred.eq(trueLabel[:length]).sum().item()/length
     return total_loss, n_correct
@@ -193,7 +196,7 @@ if __name__ == "__main__":
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/model26'
+    trainDataFolder  = '/root/data/model33'
     # Save the model parameters as .json file
     json.dump(
         model_args, 
