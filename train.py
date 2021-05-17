@@ -187,13 +187,13 @@ if __name__ == "__main__":
     validationData = DataLoader(valDataset, num_workers=5, shuffle=True, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Increase number of epochs.
-    n_epochs = 75
+    n_epochs = 150
     results = {}
     train_loss = []
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/model33'
+    trainDataFolder  = '/root/data/model36'
     # Save the model parameters as .json file
     json.dump(
         model_args, 
