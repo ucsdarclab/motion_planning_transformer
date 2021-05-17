@@ -182,11 +182,11 @@ if __name__ == "__main__":
         trainingData = DataLoader(trainDataset, num_workers=10, batch_sampler=batch_sampler, collate_fn=PaddedSequence)
 
     # Load dataset without hardmining
-    trainDataset = PathDataLoader(list(range(750)), dataFolder='/root/data/maze3/train')
+    trainDataset = PathDataLoader(list(range(750)), dataFolder='/root/data/maze4/train')
     trainingData = DataLoader(trainDataset, num_workers=10, shuffle=True, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Validation Data
-    valDataset = PathDataLoader(list(range(900, 1000)), dataFolder='/root/data/maze3/val')
+    valDataset = PathDataLoader(list(range(900, 1000)), dataFolder='/root/data/maze4/val')
     validationData = DataLoader(valDataset, num_workers=5, shuffle=True, batch_size=batch_size, collate_fn=PaddedSequence)
 
     # Increase number of epochs.
