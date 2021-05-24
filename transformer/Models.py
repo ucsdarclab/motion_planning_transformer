@@ -104,9 +104,11 @@ class Encoder(nn.Module):
         # NOTE: Padding of 8 is added to the initial layer to ensure that 
         # the output of the network has receptive field across the entire map.
         self.to_patch_embedding = nn.Sequential(
-            nn.Conv2d(2, 6, stride=2, kernel_size=5),
+            nn.Conv2d(2, 6, kernel_size=5),
+            nn.MaxPool2d(kernel_size=2),
             nn.ReLU(),
-            nn.Conv2d(6, 16, stride=2, kernel_size=5),
+            nn.Conv2d(6, 16, kernel_size=5),
+            nn.MaxPool2d(kernel_size=2),
             nn.ReLU(),
             nn.Conv2d(16, d_model, kernel_size=5, stride=5, padding=3)
         )
