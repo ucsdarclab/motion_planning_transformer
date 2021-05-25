@@ -18,7 +18,7 @@ from tqdm import tqdm
 from os import path as osp
 
 from transformer import Models, Optim
-from dataLoader import PathDataLoader, PaddedSequence, PathHardMineDataLoader
+from dataLoader import PathDataLoader, PaddedSequence, PathMixedDataLoader
 from utils import png_decoder, cls_decoder
 import webdataset as wds
 
@@ -166,34 +166,37 @@ if __name__ == "__main__":
         n_warmup_steps = 3200
     )
     
-    # Training Data
-    if False:
-        # Load training data with hardmining
-        easyBatchSize = int(0.75*batch_size)
-        hardBatchSize = batch_size-easyBatchSize
-        trainDataset = PathHardMineDataLoader(list(range(900)), dataFolderEasy='/root/data/maze/train_easy', dataFolderHard='/root/data/maze/train_hard')
-        from toolz.itertoolz import partition, concat
-        Eg = list(partition(easyBatchSize, trainDataset.indexDictEasy))
-        Eh = list(partition(hardBatchSize, trainDataset.indexDictHard))
-        batch_sampler = [list(concat([Egi, Ehi])) for Egi, Ehi in zip(Eg,Eh)]
-        trainingData = DataLoader(trainDataset, num_workers=10, batch_sampler=batch_sampler, collate_fn=PaddedSequence)
-
-    # Load dataset without hardmining
-    trainDataset = PathDataLoader(list(range(750))+list(range(1000, 2000)), dataFolder='/root/data/maze4/train')
-    trainingData = DataLoader(trainDataset, num_workers=10, shuffle=True, batch_size=batch_size, collate_fn=PaddedSequence)
+    # Training with Mixed samples
+    trainDataset = PathMixedDataLoader(
+        envListForest=list(range(1700)), 
+        dataFolderForest='/root/data/forest/train', 
+        envListMaze=list(range(750))+list(range(1000, 2000)),
+        dataFolderMaze='/root/data/maze4/train'
+    )
+    from toolz.itertoolz import partition
+    allTrainData = trainDataset.indexDictForest + trainDataset.indexDictMaze
+    batch_sampler_train = list(partition(batch_size, allTrainData))
+    trainingData = DataLoader(trainDataset, num_workers=15, batch_sampler=batch_sampler_train, collate_fn=PaddedSequence)
 
     # Validation Data
-    valDataset = PathDataLoader(list(range(900, 1000)), dataFolder='/root/data/maze4/val')
-    validationData = DataLoader(valDataset, num_workers=5, shuffle=True, batch_size=batch_size, collate_fn=PaddedSequence)
+    valDataset = PathMixedDataLoader(
+        envListForest=list(range(1000)), 
+        dataFolderForest='/root/data/forest/val', 
+        envListMaze=list(range(900, 1000)),
+        dataFolderMaze='/root/data/maze4/val'
+    )
+    allValData = valDataset.indexDictForest + valDataset.indexDictMaze
+    batch_sampler_val = list(partition(batch_size, allValData))
+    validationData = DataLoader(valDataset, num_workers=5, batch_sampler=batch_sampler_val, collate_fn=PaddedSequence)
 
     # Increase number of epochs.
-    n_epochs = 150
+    n_epochs = 70
     results = {}
     train_loss = []
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/model36'
+    trainDataFolder  = '/root/data/mixedData'
     # Save the model parameters as .json file
     json.dump(
         model_args, 
