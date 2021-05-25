@@ -93,8 +93,14 @@ def get_path(start, goal, input_map, patch_map):
     if ss.haveExactSolutionPath():
         success = True
         print("Found Solution")
+        path = [
+            [ss.getSolutionPath().getState(i)[0], ss.getSolutionPath().getState(i)[1]]
+            for i in range(ss.getSolutionPath().getStateCount())
+            ]
+    else:
+        path = [[start[0], start[1]], [goal[0], goal[1]]]
 
-    return success
+    return np.array(path), success
 
 device='cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -199,7 +205,7 @@ if __name__=="__main__":
                     goal_end_y = min(map_size[1], pos[1]+ receptive_field//2)
                     patch_map[goal_start_y:goal_end_y, goal_start_x:goal_end_x] = 1.0
 
-                PathSuccess.append(get_path(path[0, :], path[-1, :], small_map, patch_map))
+                PathSuccess.append(get_path(path[0, :], path[-1, :], small_map, patch_map)[1])
             else:
                 PathSuccess.append(False)
 
