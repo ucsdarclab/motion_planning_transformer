@@ -167,27 +167,18 @@ if __name__ == "__main__":
     )
     
     # Training with Mixed samples
-    trainDataset = PathMixedDataLoader(
-        envListForest=list(range(1700)), 
-        dataFolderForest='/root/data/forest/train', 
-        envListMaze=list(range(750))+list(range(1000, 2000)),
-        dataFolderMaze='/root/data/maze4/train'
+    trainDataset = PathDataLoader(
+        env_list=list(range(1750)),
+        dataFolder='/root/data/forest/train'
     )
-    from toolz.itertoolz import partition
-    allTrainData = trainDataset.indexDictForest + trainDataset.indexDictMaze
-    batch_sampler_train = list(partition(batch_size, allTrainData))
-    trainingData = DataLoader(trainDataset, num_workers=15, batch_sampler=batch_sampler_train, collate_fn=PaddedSequence)
+    trainingData = DataLoader(trainDataset, num_workers=15, collate_fn=PaddedSequence)
 
     # Validation Data
-    valDataset = PathMixedDataLoader(
-        envListForest=list(range(1000)), 
-        dataFolderForest='/root/data/forest/val', 
-        envListMaze=list(range(900, 1000)),
-        dataFolderMaze='/root/data/maze4/val'
+    valDataset = PathDataLoader(
+        envList=list(range(2500)), 
+        dataFolder='/root/data/forest/val'
     )
-    allValData = valDataset.indexDictForest + valDataset.indexDictMaze
-    batch_sampler_val = list(partition(batch_size, allValData))
-    validationData = DataLoader(valDataset, num_workers=5, batch_sampler=batch_sampler_val, collate_fn=PaddedSequence)
+    validationData = DataLoader(valDataset, num_workers=5, collate_fn=PaddedSequence)
 
     # Increase number of epochs.
     n_epochs = 70
@@ -196,7 +187,7 @@ if __name__ == "__main__":
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/mixedData'
+    trainDataFolder  = '/root/data/model40'
     # Save the model parameters as .json file
     json.dump(
         model_args, 
