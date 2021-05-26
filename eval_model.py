@@ -12,6 +12,7 @@ import pickle
 from os import path as osp
 import argparse
 import json
+import time
 
 try:
     from ompl import base as ob
@@ -50,13 +51,26 @@ bounds.setHigh(length)
 space.setBounds(bounds)
 si = ob.SpaceInformation(space)
 
+def getPathLengthObjective(cost, si):
+    '''
+    Return the threshold objective for early termination
+    :param cost: The cost of the original RRT* path
+    :param si: An object of class ob.SpaceInformation
+    :returns : An object of class ob.PathLengthOptimizationObjective
+    '''
+    obj = ob.PathLengthOptimizationObjective(si)
+    obj.setCostThreshold(ob.Cost(cost))
+    return obj
 
-def get_path(start, goal, input_map, patch_map):
+
+def get_path(start, goal, input_map, patch_map, plannerType, cost):
     '''
     Plan a path given the start, goal and patch_map.
-    :param start: 
+    :param start:
     :param goal:
     :param patch_map:
+    :param plannerType: The planner type to use
+    :param cost: The cost of the path
     returns bool: Returns True if a path was planned successfully.
     '''
 
@@ -66,7 +80,6 @@ def get_path(start, goal, input_map, patch_map):
     si.setStateValidityChecker(ValidityCheckerObj)
 
     StartState = ob.State(space)
-    # import pdb;pdb.set_trace()
     StartState[0] = start[0]
     StartState[1] = start[1]
 
@@ -75,32 +88,48 @@ def get_path(start, goal, input_map, patch_map):
     GoalState[1] = goal[1]
 
     success = False
-    ss = og.SimpleSetup(si)
 
-    # Set the start and goal States:
-    ss.setStartAndGoalStates(StartState, GoalState, 0.1)
+    # Define planning problem
+    pdef = ob.ProblemDefinition(si)
+    pdef.setStartAndGoalStates(StartState, GoalState, 0.1)
 
-    planner = og.RRTstar(si)
-    ss.setPlanner(planner)
+    # Set up the objective function
+    obj = getPathLengthObjective(cost, si)
+    pdef.setOptimizationObjective(obj)
+    
+    if plannerType=='rrtstar':
+        planner = og.RRTstar(si)
+    elif plannerType=='informedrrtstar':
+        planner = og.InformedRRTstar(si)
+    else:
+        raise TypeError(f"Planner Type {plannerType} not found")
+    
+    # Set the problem instance the planner has to solve
 
-    time = 1
-    solved = ss.solve(time)
-    while not ss.haveExactSolutionPath():
-        solved = ss.solve(2)
-        time += 2
-        if time>10:
-            break
-    if ss.haveExactSolutionPath():
+    planner.setProblemDefinition(pdef)
+    planner.setup()
+
+    # Attempt to solve the planning problem in the given time
+    startTime = time.time()
+    solved = planner.solve(90.0)
+    planTime = time.time()-startTime
+
+    plannerData = ob.PlannerData(si)
+    planner.getPlannerData(plannerData)
+    numVertices = plannerData.numVertices()
+
+    if pdef.hasExactSolution():
         success = True
+
         print("Found Solution")
         path = [
-            [ss.getSolutionPath().getState(i)[0], ss.getSolutionPath().getState(i)[1]]
-            for i in range(ss.getSolutionPath().getStateCount())
+            [pdef.getSolutionPath().getState(i)[0], pdef.getSolutionPath().getState(i)[1]]
+            for i in range(pdef.getSolutionPath().getStateCount())
             ]
     else:
         path = [[start[0], start[1]], [goal[0], goal[1]]]
 
-    return np.array(path), success
+    return path, planTime, numVertices, success
 
 device='cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -115,7 +144,7 @@ def get_patch(model, start_pos, goal_pos, input_map):
     :param input_map:
     '''
     # Identitfy Anchor points
-    encoder_input = get_encoder_input(input_map, goal_pos, start_pos)
+    encoder_input = get_encoder_input(input_map, goal_pos[::-1], start_pos[::-1])
     predVal = model(encoder_input[None,:].float().cuda())
     predClass = predVal[0, :, :].max(1)[1]
 
@@ -137,10 +166,16 @@ device='cuda' if torch.cuda.is_available() else 'cpu'
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--plannerType', 
+        help='The underlying sampler to use', 
+        required=True, 
+        choices=['rrtstar', 'informedrrtstar']
+    )
     parser.add_argument('--modelFolder', help='Directory where model_params.json exists', required=True)
     parser.add_argument('--valDataFolder', help='Directory where training data exists', required=True)
-    # parser.add_argument('--envNum', help='Environment number to validate model', required=True)
     parser.add_argument('--start', help='Start of environment number', required=True, type=int)
+    parser.add_argument('--samples', help='Start of environment number', required=True, type=int)
     parser.add_argument('--epoch', help='Model epoch number to test', required=True, type=int)
     parser.add_argument('--numPaths', help='Number of start and goal pairs for each env', default=1, type=int)
 
@@ -150,7 +185,6 @@ if __name__=="__main__":
     modelFile = osp.join(modelFolder, f'model_params.json')
     assert osp.isfile(modelFile), f"Cannot find the model_params.json file in {modelFolder}"
 
-    # env_num = args.envNum
     start = args.start
 
     model_param = json.load(open(modelFile))
@@ -167,13 +201,14 @@ if __name__=="__main__":
     transformer.load_state_dict(checkpoint['state_dict'])
 
     # valDataFolder
-    # /root/data/maze/val
     valDataFolder = args.valDataFolder
     # Only do evaluation
     transformer.eval()
     # Get path data
-    PathSuccess = []
-    for env_num in range(start, start+20):
+    pathSuccess = []
+    pathTime = []
+    pathVertices = []
+    for env_num in range(start, start+args.samples):
         temp_map =  osp.join(valDataFolder, f'env{env_num:06d}/map_{env_num}.png')
         small_map = skimage.io.imread(temp_map, as_gray=True)
 
@@ -188,7 +223,7 @@ if __name__=="__main__":
                 start_pos = geom2pix(path[-1, :])
 
                 # Identitfy Anchor points
-                encoder_input = get_encoder_input(small_map, goal_pos, start_pos)
+                encoder_input = get_encoder_input(small_map, goal_pos[::-1], start_pos[::-1])
                 predVal = transformer(encoder_input[None,:].float().cuda())
                 predClass = predVal[0, :, :].max(1)[1]
 
@@ -204,10 +239,16 @@ if __name__=="__main__":
                     goal_end_x = min(map_size[0], pos[0]+ receptive_field//2)
                     goal_end_y = min(map_size[1], pos[1]+ receptive_field//2)
                     patch_map[goal_start_y:goal_end_y, goal_start_x:goal_end_x] = 1.0
-
-                PathSuccess.append(get_path(path[0, :], path[-1, :], small_map, patch_map)[1])
+                cost = np.linalg.norm(np.diff(path, axis=0), axis=1).sum()
+                _, t, v, s = get_path(path[0, :], path[-1, :], small_map, patch_map, args.plannerType, cost)
+                pathSuccess.append(s)
+                pathTime.append(t)
+                pathVertices.append(v)
             else:
-                PathSuccess.append(False)
+                pathSuccess.append(False)
+                pathTime.append(0)
+                pathVertices.append(0)
 
-    pickle.dump(PathSuccess, open(osp.join(modelFolder, f'eval_val_plan_{start:06d}.p'), 'wb'))
-    print(sum(PathSuccess))
+    pathData = {'Time':pathTime, 'Success':pathSuccess, 'Vertices':pathVertices}
+    pickle.dump(pathData, open(osp.join(modelFolder, f'eval_val_plan_{args.plannerType}_{start:06d}.p'), 'wb'))
+    print(sum(pathSuccess))
