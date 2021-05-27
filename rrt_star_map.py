@@ -29,16 +29,6 @@ length = 24 # Size of the map
 robot_radius = 0.1
 dist_resl = 0.05
 
-# Define the space
-space = ob.RealVectorStateSpace(2)
-
-# Set the bounds 
-bounds = ob.RealVectorBounds(2)
-bounds.setLow(0)
-bounds.setHigh(length)
-space.setBounds(bounds)
-# Define the SpaceInformation object.
-si = ob.SpaceInformation(space)
 
 def get_path(start, goal, ValidityCheckerObj=None):
     '''
@@ -49,6 +39,17 @@ def get_path(start, goal, ValidityCheckerObj=None):
     returns (np.array, np.array, success): A tuple of numpy arrays of a valid path,  
     interpolated path and whether the plan was successful or not.
     '''
+    mapSize = ValidityCheckerObj.size
+    # Define the space
+    space = ob.RealVectorStateSpace(2)
+    bounds = ob.RealVectorBounds(2)
+    bounds.setLow(0.0)
+    bounds.setHigh(0, mapSize[1]*dist_resl) # Set width bounds (x)
+    bounds.setHigh(1, mapSize[0]*dist_resl) # Set height bounds (y)
+    space.setBounds(bounds)
+    # Define the SpaceInformation object.
+    si = ob.SpaceInformation(space)
+
     success = False
     # Create a simple setup
     ss = og.SimpleSetup(si)
@@ -103,6 +104,17 @@ def start_experiment_rrt(start, samples, fileDir=None):
 
     envNum = int(fileDir[-6:])
     CurMap = io.imread(osp.join(fileDir, f'map_{envNum}.png'), as_gray=True)
+    mapSize = CurMap.shape
+    # Planning parametersf
+    space = ob.RealVectorStateSpace(2)
+    bounds = ob.RealVectorBounds(2)
+    bounds.setLow(0.0)
+    bounds.setHigh(0, mapSize[1]*dist_resl) # Set width bounds (x)
+    bounds.setHigh(1, mapSize[0]*dist_resl) # Set height bounds (y)
+    space.setBounds(bounds)
+
+    # Define the SpaceInformation object.
+    si = ob.SpaceInformation(space)
     # Validity checking
     ValidityCheckerObj = ValidityChecker(si, CurMap=CurMap)
     si.setStateValidityChecker(ValidityCheckerObj)
@@ -141,7 +153,7 @@ def start_map_collection_rrt(start, samples, envType, numPaths, fileDir):
             os.mkdir(envFileDir)
         fileName = osp.join(envFileDir, f'map_{i}.png')
         if envType=='forest':
-            generate_random_maps(length=length, seed=i+200, fileName=fileName)
+            generate_random_maps(width=length, seed=i+200, fileName=fileName)
         if envType=='maze':
             generate_random_maze(length=length, wt=1, pw=1.875, seed=i, fileName=fileName)
         start_experiment_rrt(0, numPaths, fileDir=envFileDir)
