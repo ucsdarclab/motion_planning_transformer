@@ -41,15 +41,32 @@ def pix2geom(pos, res=0.05, length=24):
 
 
 receptive_field = 32
-hashTable = [(20*r+4, 20*c+4) for c in range(24) for r in range(24)]
 
-# Planning parameters
-space = ob.RealVectorStateSpace(2)
-bounds = ob.RealVectorBounds(2)
-bounds.setLow(0.0)
-bounds.setHigh(length)
-space.setBounds(bounds)
-si = ob.SpaceInformation(space)
+def getHashTable(mapSize):
+    '''
+    Return the hashTable for the given map
+    NOTE: This hastable only works for the  patch_embedding network defined in the
+    transformers/Models.py file.
+    :param mapSize: The size of the map
+    :returns list: the hashTable to convert 1D token index to 2D image positions
+    '''
+    H, W = mapSize
+    Hhat = np.floor((H-8)/4) - 1
+    What = np.floor((W-8)/4) - 1
+    if Hhat%5>0:
+        padH = int(((Hhat//5)+1)*5 - Hhat)
+    else:
+        padH = 0
+
+    if What%5>0:
+        padW = int(((What//5)+1)*5 - What)
+    else:
+        padW = 0
+
+    tokenH = int((Hhat+padH)/5)
+    tokenW = int((What+padW)/5)
+    return [(20*r+4, 20*c+4) for c in range(tokenH) for r in range(tokenW)]
+
 
 def getPathLengthObjective(cost, si):
     '''
@@ -145,6 +162,7 @@ def get_patch(model, start_pos, goal_pos, input_map):
     '''
     # Identitfy Anchor points
     encoder_input = get_encoder_input(input_map, goal_pos[::-1], start_pos[::-1])
+    hashTable = getHashTable(input_map.shape)
     predVal = model(encoder_input[None,:].float().cuda())
     predClass = predVal[0, :, :].max(1)[1]
 
