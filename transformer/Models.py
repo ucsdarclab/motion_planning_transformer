@@ -11,6 +11,9 @@ from transformer.Layers import EncoderLayer, DecoderLayer
 from einops.layers.torch import Rearrange
 from einops import rearrange
 
+# TODO: A better way to do this would be maintain the position encoding in the form of 
+# 3D tensor, and add it to the output of the convolution, rather than doing all the
+
 class PositionalEncoding(nn.Module):
     '''Positional encoding
     '''
@@ -101,8 +104,10 @@ class Encoder(nn.Module):
         # NOTE: This is one place where we can add convolution networks.
         # Convert the image to linear model
 
-        # NOTE: Padding of 8 is added to the initial layer to ensure that 
+        # NOTE: Padding of 3 is added to the final layer to ensure that 
         # the output of the network has receptive field across the entire map.
+        # NOTE: pytorch doesn't have a good way to ensure automatic padding. This
+        # allows only for a select few map sizes to be solved using this method.
         self.to_patch_embedding = nn.Sequential(
             nn.Conv2d(2, 6, kernel_size=5),
             nn.MaxPool2d(kernel_size=2),
