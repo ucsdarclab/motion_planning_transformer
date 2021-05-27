@@ -79,14 +79,14 @@ def get_encoder_input(InputMap, goal_pos, start_pos):
     context_map = np.zeros(map_size)
     goal_start_y = max(0, goal_pos[0]- receptive_field//2)
     goal_start_x = max(0, goal_pos[1]- receptive_field//2)
-    goal_end_y = min( map_size[0], goal_pos[0]+ receptive_field//2)
-    goal_end_x = min( map_size[1], goal_pos[1]+ receptive_field//2)
+    goal_end_y = min( map_size[1], goal_pos[0]+ receptive_field//2)
+    goal_end_x = min( map_size[0], goal_pos[1]+ receptive_field//2)
     context_map[goal_start_x:goal_end_x, goal_start_y:goal_end_y] = 1.0
     # Mark start region
     start_start_y = max(0, start_pos[0]- receptive_field//2)
     start_start_x = max(0, start_pos[1]- receptive_field//2)
-    start_end_y = min( map_size[0], start_pos[0]+ receptive_field//2)
-    start_end_x = min( map_size[1], start_pos[1]+ receptive_field//2)
+    start_end_y = min( map_size[1], start_pos[0]+ receptive_field//2)
+    start_end_x = min( map_size[0], start_pos[1]+ receptive_field//2)
     context_map[start_start_x:start_end_x, start_start_y:start_end_y] = -1.0
     return torch.as_tensor(np.concatenate((InputMap[None, :], context_map[None, :])))
 
