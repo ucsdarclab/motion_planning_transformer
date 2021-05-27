@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import skimage.io
-import skimage.morphology as skim
 import numpy as np
 import pickle
 
@@ -26,7 +25,6 @@ from utils import geom2pix, ValidityChecker
 from dataLoader import get_encoder_input
 
 res = 0.05
-length = 24
 
 
 def pix2geom(pos, res=0.05, length=24):
@@ -90,7 +88,15 @@ def get_path(start, goal, input_map, patch_map, plannerType, cost):
     :param cost: The cost of the path
     returns bool: Returns True if a path was planned successfully.
     '''
-
+    mapSize = input_map.shape
+    # Planning parametersf
+    space = ob.RealVectorStateSpace(2)
+    bounds = ob.RealVectorBounds(2)
+    bounds.setLow(0.0)
+    bounds.setHigh(0, mapSize[1]*res) # Set width bounds (x)
+    bounds.setHigh(1, mapSize[0]*res) # Set height bounds (y)
+    space.setBounds(bounds)
+    si = ob.SpaceInformation(space)
     # Tried importance sampling, but seems like it makes not much improvement 
     # over rejection sampling.
     ValidityCheckerObj = ValidityChecker(si, input_map, patch_map)
@@ -128,7 +134,7 @@ def get_path(start, goal, input_map, patch_map, plannerType, cost):
 
     # Attempt to solve the planning problem in the given time
     startTime = time.time()
-    solved = planner.solve(90.0)
+    solved = planner.solve(30.0)
     planTime = time.time()-startTime
 
     plannerData = ob.PlannerData(si)
@@ -175,8 +181,8 @@ def get_patch(model, start_pos, goal_pos, input_map):
     for pos in possAnchor:
         goal_start_x = max(0, pos[0]- receptive_field//2)
         goal_start_y = max(0, pos[1]- receptive_field//2)
-        goal_end_x = min(map_size[0], pos[0]+ receptive_field//2)
-        goal_end_y = min(map_size[1], pos[1]+ receptive_field//2)
+        goal_end_x = min(map_size[1], pos[0]+ receptive_field//2)
+        goal_end_y = min(map_size[0], pos[1]+ receptive_field//2)
         patch_map[goal_start_y:goal_end_y, goal_start_x:goal_end_x] = 1.0
     return patch_map
 
@@ -220,7 +226,7 @@ if __name__=="__main__":
 
     # valDataFolder
     valDataFolder = args.valDataFolder
-    # Only do evaluation
+    # Only do evaluation - Need this for the problem to work with maps of different sizes.
     transformer.eval()
     # Get path data
     pathSuccess = []
@@ -229,19 +235,21 @@ if __name__=="__main__":
     for env_num in range(start, start+args.samples):
         temp_map =  osp.join(valDataFolder, f'env{env_num:06d}/map_{env_num}.png')
         small_map = skimage.io.imread(temp_map, as_gray=True)
-
+        mapSize = small_map.shape
+        hashTable = getHashTable(mapSize)
         for pathNum in range(args.numPaths):
         # pathNum = 0
             pathFile = osp.join(valDataFolder, f'env{env_num:06d}/path_{pathNum}.p')
             data = pickle.load(open(pathFile, 'rb'))
             path = data['path_interpolated']
-
+            
             if data['success']:
-                goal_pos = geom2pix(path[0, :])
-                start_pos = geom2pix(path[-1, :])
+                goal_pos = geom2pix(path[0, :], size=mapSize)
+                start_pos = geom2pix(path[-1, :], size=mapSize)
 
                 # Identitfy Anchor points
-                encoder_input = get_encoder_input(small_map, goal_pos[::-1], start_pos[::-1])
+                encoder_input = get_encoder_input(small_map, goal_pos, start_pos)
+                # NOTE: Currently only valid for map sizes of certain multiples.
                 predVal = transformer(encoder_input[None,:].float().cuda())
                 predClass = predVal[0, :, :].max(1)[1]
 
@@ -254,8 +262,8 @@ if __name__=="__main__":
                 for pos in possAnchor:
                     goal_start_x = max(0, pos[0]- receptive_field//2)
                     goal_start_y = max(0, pos[1]- receptive_field//2)
-                    goal_end_x = min(map_size[0], pos[0]+ receptive_field//2)
-                    goal_end_y = min(map_size[1], pos[1]+ receptive_field//2)
+                    goal_end_x = min(map_size[1], pos[0]+ receptive_field//2)
+                    goal_end_y = min(map_size[0], pos[1]+ receptive_field//2)
                     patch_map[goal_start_y:goal_end_y, goal_start_x:goal_end_x] = 1.0
                 cost = np.linalg.norm(np.diff(path, axis=0), axis=1).sum()
                 _, t, v, s = get_path(path[0, :], path[-1, :], small_map, patch_map, args.plannerType, cost)
