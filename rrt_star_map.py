@@ -49,6 +49,7 @@ def get_path(start, goal, ValidityCheckerObj=None):
     space.setBounds(bounds)
     # Define the SpaceInformation object.
     si = ob.SpaceInformation(space)
+    si.setStateValidityChecker(ValidityCheckerObj)
 
     success = False
     # Create a simple setup
