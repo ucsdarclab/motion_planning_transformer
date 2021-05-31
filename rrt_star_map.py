@@ -139,7 +139,53 @@ def start_experiment_rrt(start, samples, fileDir=None):
 
         pickle.dump(path_param, open(osp.join(fileDir,f'path_{i}.p'), 'wb'))
 
-def start_map_collection_rrt(start, samples, envType, numPaths, fileDir):
+def start_experiment_rrtrealWorld(start, samples, mapFile, fileDir=None):
+    '''
+    Run the experiment for random start and goal points on the real world environment
+    :param start: The start index of the samples
+    :param samples: The number of samples to collect
+    :param fileDir: Directory with the map and paths
+    '''
+    assert osp.isdir(fileDir), f"{fileDir} is not a valid directory"
+
+    CurMap = io.imread(mapFile, as_gray=True)
+    mapSize = CurMap.shape
+    # Planning parametersf
+    space = ob.RealVectorStateSpace(2)
+    bounds = ob.RealVectorBounds(2)
+    # Set bounds away from  boundary to avoid sampling points outside the map
+    bounds.setLow(2.0)
+    bounds.setHigh(0, mapSize[1]*dist_resl-2) # Set width bounds (x)
+    bounds.setHigh(1, mapSize[0]*dist_resl-2) # Set height bounds (y)
+    space.setBounds(bounds)
+
+    # Define the SpaceInformation object.
+    si = ob.SpaceInformation(space)
+    # Validity checking
+    ValidityCheckerObj = ValidityChecker(si, CurMap=CurMap)
+    si.setStateValidityChecker(ValidityCheckerObj)
+
+    for i in range(start, start+samples):
+        path_param = {}
+        # Define the start and goal location
+        start = ob.State(space)
+        start.random()
+        while not ValidityCheckerObj.isValid(start()):
+            start.random()
+        goal = ob.State(space)
+        goal.random()
+        while not ValidityCheckerObj.isValid(goal()):   
+            goal.random()
+
+        path, path_interpolated, success = get_path(start, goal, ValidityCheckerObj)
+        path_param['path'] = path
+        path_param['path_interpolated'] = path_interpolated
+        path_param['success'] = success
+
+        pickle.dump(path_param, open(osp.join(fileDir,f'path_{i}.p'), 'wb'))
+
+
+def start_map_collection_rrt(start, samples, envType, numPaths, fileDir, mapFile):
     '''
     Collect a single path for the given number of samples.
     :param start: The start index of the samples.
@@ -147,26 +193,34 @@ def start_map_collection_rrt(start, samples, envType, numPaths, fileDir):
     :param envType: The type of environment to set up.
     :param numPaths: The number of paths to collect for each environment.
     :param fileDir: The directory to save the paths
+    :param mapFile: Provide the location of the map file.
     '''
-    for i in range(start, start+samples):
-        envFileDir = osp.join(fileDir, f'env{i:06d}')
-        if not osp.isdir(envFileDir):
-            os.mkdir(envFileDir)
-        fileName = osp.join(envFileDir, f'map_{i}.png')
-        if envType=='forest':
-            generate_random_maps(width=length, seed=i+200, fileName=fileName)
-        if envType=='maze':
-            generate_random_maze(length=length, wt=1, pw=1.875, seed=i, fileName=fileName)
-        start_experiment_rrt(0, numPaths, fileDir=envFileDir)
+    if envType =='realworld':
+        assert mapFile is not None, "Need to set a map for planning"
+        start_experiment_rrtrealWorld(0, numPaths, mapFile, fileDir)
+    else:
+        for i in range(start, start+samples):
+                envFileDir = osp.join(fileDir, f'env{i:06d}')
+                if not osp.isdir(envFileDir):
+                    os.mkdir(envFileDir)
+                fileName = osp.join(envFileDir, f'map_{i}.png')
+                if envType=='forest':
+                    generate_random_maps(width=length, seed=i+200, fileName=fileName)
+                if envType=='maze':
+                    generate_random_maze(length=length, wt=1, pw=1.875, seed=i, fileName=fileName)
+
+                start_experiment_rrt(0, numPaths, fileDir=envFileDir)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--start', help='Start of the sample index', required=True, type=int)
     parser.add_argument('--samples', help='Number of samples to collect', required=True, type=int)
-    parser.add_argument('--envType', help='Type of environment', choices=['maze', 'forest'])
+    parser.add_argument('--envType', help='Type of environment', choices=['maze', 'forest', 'realworld'])
     parser.add_argument('--numPaths', help='Number of paths to collect', default=1, type=int)
     parser.add_argument('--fileDir', help='The Folder to save the files', required=True)
+    parser.add_argument('--mapFile', help='The map to plan on')
+
 
     args = parser.parse_args()
 
-    start_map_collection_rrt(args.start, args.samples, args.envType, args.numPaths, args.fileDir)
+    start_map_collection_rrt(args.start, args.samples, args.envType, args.numPaths, args.fileDir, args.mapFile)
