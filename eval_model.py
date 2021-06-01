@@ -97,8 +97,6 @@ def get_path(start, goal, input_map, patch_map, plannerType, cost):
     bounds.setHigh(1, mapSize[0]*res) # Set height bounds (y)
     space.setBounds(bounds)
     si = ob.SpaceInformation(space)
-    # Tried importance sampling, but seems like it makes not much improvement 
-    # over rejection sampling.
     ValidityCheckerObj = ValidityChecker(si, input_map, patch_map)
     si.setStateValidityChecker(ValidityCheckerObj)
 
@@ -199,7 +197,7 @@ if __name__=="__main__":
     parser.add_argument('--modelFolder', help='Directory where model_params.json exists', required=True)
     parser.add_argument('--valDataFolder', help='Directory where training data exists', required=True)
     parser.add_argument('--start', help='Start of environment number', required=True, type=int)
-    parser.add_argument('--samples', help='Start of environment number', required=True, type=int)
+    parser.add_argument('--numEnv', help='Number of environments', required=True, type=int)
     parser.add_argument('--epoch', help='Model epoch number to test', required=True, type=int)
     parser.add_argument('--numPaths', help='Number of start and goal pairs for each env', default=1, type=int)
 
@@ -232,7 +230,7 @@ if __name__=="__main__":
     pathSuccess = []
     pathTime = []
     pathVertices = []
-    for env_num in range(start, start+args.samples):
+    for env_num in range(start, start+args.numEnv):
         temp_map =  osp.join(valDataFolder, f'env{env_num:06d}/map_{env_num}.png')
         small_map = skimage.io.imread(temp_map, as_gray=True)
         mapSize = small_map.shape
