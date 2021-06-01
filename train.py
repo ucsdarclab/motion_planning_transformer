@@ -7,10 +7,6 @@ import pickle
 import torch
 import torch.optim as optim
 
-import io
-import skimage.io
-
-from torchvision.transforms import Normalize
 from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.nn.functional as F
@@ -19,8 +15,6 @@ from os import path as osp
 
 from transformer import Models, Optim
 from dataLoader import PathDataLoader, PaddedSequence, PathMixedDataLoader
-from utils import png_decoder, cls_decoder
-import webdataset as wds
 
 from torch.utils.tensorboard import SummaryWriter
 
