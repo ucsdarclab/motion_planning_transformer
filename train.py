@@ -117,11 +117,38 @@ def eval_epoch(model, validationData, device):
     return total_loss, total_n_correct
 
 
-import sys
-import json
+def check_data_folders(folder):
+    '''
+    Checks if the folder is formatted properly for training.
+    The folder need to have a 'train' and 'val' folder
+    :param folder: The folder to test
+    '''
+    assert osp.isdir(osp.join(folder, 'train')), "Cannot find trainining data"
+    assert osp.isdir(osp.join(folder, 'val')), "Cannot find validation data"
 
 if __name__ == "__main__":
-    batch_size = int(sys.argv[1])
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--batchSize', help="Batch size per GPU", required=True, type=int)
+    parser.add_argument('--mazeDir', help="Directory with training and validation data for Maze", default=None)
+    parser.add_argument('--forestDir', help="Directory with training and validation data for Random Forest", default=None)
+    parser.add_argument('--fileDir', help="Directory to save training Data")
+    args = parser.parse_args()
+
+    maze=False
+    if args.mazeDir is not None:
+        check_data_folders(args.mazeDir)
+        maze=True
+    forest=False
+    if args.forestDir is not None:
+        check_data_folders(args.forestDir)
+        forest=True
+
+    assert forest or maze, "Need to provide data folder for atleast one kind of environment"
+    dataFolder = args.mazeDir if not(maze and forest) and maze else args.forestDir
+
+    print(f"Using data from {dataFolder}")
+
+    batch_size = args.batchSize
     device = 'cpu'
     if torch.cuda.is_available():
         print("Using GPU....")
@@ -162,20 +189,42 @@ if __name__ == "__main__":
         d_model = 256,
         n_warmup_steps = 3200
     )
-    
-    # Training with Mixed samples
-    trainDataset = PathDataLoader(
-        env_list=list(range(1750)),
-        dataFolder='/root/data/forest/train'
-    )
-    trainingData = DataLoader(trainDataset, num_workers=15, collate_fn=PaddedSequence)
 
-    # Validation Data
-    valDataset = PathDataLoader(
-        envList=list(range(2500)), 
-        dataFolder='/root/data/forest/val'
-    )
-    validationData = DataLoader(valDataset, num_workers=5, collate_fn=PaddedSequence)
+    # Training with Mixed samples
+    if maze and forest:
+        from toolz.itertoolz import partition
+        trainDataset= PathMixedDataLoader(
+            envListForest=list(range(10)),
+            dataFolderForest=osp.join(args.forestDir, 'train'),
+            envListMaze=list(range(10)),
+            dataFolderMaze=osp.join(args.mazeDir, 'train')
+        )
+        allTrainingData = trainDataset.indexDictForest + trainDataset.indexDictMaze
+        batch_sampler_train = list(partition(batch_size, allTrainingData))
+        trainingData = DataLoader(trainDataset, num_workers=15, batch_sampler=batch_sampler_train, collate_fn=PaddedSequence)
+
+        valDataset = PathMixedDataLoader(
+            envListForest=list(range(10)),
+            dataFolderForest=osp.join(args.forestDir, 'val'),
+            envListMaze=list(range(10)),
+            dataFolderMaze=osp.join(args.mazeDir, 'val')
+        )
+        allValData = valDataset.indexDictForest+valDataset.indexDictMaze
+        batch_sampler_val = list(partition(batch_size, allValData))
+        validationData = DataLoader(valDataset, num_workers=5, batch_sampler=batch_sampler_val, collate_fn=PaddedSequence)
+    else:        
+        trainDataset = PathDataLoader(
+            env_list=list(range(10)),
+            dataFolder=osp.join(dataFolder, 'train')
+        )
+        trainingData = DataLoader(trainDataset, num_workers=15, collate_fn=PaddedSequence, batch_size=batch_size)
+
+        # Validation Data
+        valDataset = PathDataLoader(
+            env_list=list(range(2500)),
+            dataFolder=osp.join(dataFolder, 'val')
+        )
+        validationData = DataLoader(valDataset, num_workers=5, collate_fn=PaddedSequence, batch_size=batch_size)
 
     # Increase number of epochs.
     n_epochs = 70
@@ -184,7 +233,7 @@ if __name__ == "__main__":
     val_loss = []
     train_n_correct_list = []
     val_n_correct_list = []
-    trainDataFolder  = '/root/data/model40'
+    trainDataFolder  = args.fileDir
     # Save the model parameters as .json file
     json.dump(
         model_args, 
