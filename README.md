@@ -1,5 +1,6 @@
 # Motion Planning Transformers: One Model to Plan them All
-[Transformer Figure](transformer_fig.jpg)
+![Transformer Figure](transformer_fig.jpg)
+
 ## Requirements
 
 ## Training
