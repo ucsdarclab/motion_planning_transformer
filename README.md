@@ -29,15 +29,19 @@ docker run -it --gpus all --shm-size="16G" -v ~/global_planner_data:/root/data
 ```
 
 ### Creating Dataset
-To generate training or validation data set you can run the following command:
+To generate training or validation data set for the point environment you can run the following command:
 
 ```
 python3 rrt_star_map.py --start=... --numEnv=... --envType=... --numPaths=... --fileDir=... --mapFile
 ```
 
-To understand what each of these arguments stand for, run `python3 rrt_star_map.py --help`.
+To collect data samples for the car environment you can run the following command:
 
-You can download the training and validation data for maze and forest environments from [here](https://drive.google.com/file/d/1ciyn4_kDGEgVFWAAaKrfPqVme1U6vw9N/view?usp=sharing) and [here](https://drive.google.com/file/d/14-2oEtf4u9bLt6JwGezb0iqCS9_VzS8Y/view?usp=sharing) respectively.
+```
+python3 sst_map.py --start=... --numEnv=... --numPaths=... --fileDir=...
+```
+
+You can download all the data we used for training from [here]().
 
 ### Training
 
@@ -60,5 +64,63 @@ You can download the pretrained models for the point robot and Dubins Car Model 
 
 ### Results
 
+<table>
+	<thead>
+	<tr>
+		<th>Environment </th>
+		<th colspan="3">Random Forest</th>
+		<th colspan="3">Maze</th>
+	</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td></td>
+			<td>Accuracy</td>
+			<td>Time (sec)</td>
+			<td>Vertices</td>
+			<td>Accuracy</td>
+			<td>Time (sec)</td>
+			<td>Vertices</td>
+		</tr>
+		<tr>
+			<td>RRT*</td>
+			<td>99.88\%</td>
+			<td>5.44</td>
+			<td>3227.5</td>
+			<td>100\%</td>
+			<td>5.36</td>
+			<td>2042</td>
+		</tr>
+		<tr>
+			<td>IRRT*</td>
+			<td>99.88\%</td>
+			<td>0.42</td>
+			<td>267</td>
+			<td>100\%</td>
+			<td>3.13</td>
+			<td>1393.5</td>
+		</tr>
+		<tr>
+			<td>MPT-RRT*</td>
+			<td>97.68\%</td>
+			<td>0.20</td>
+			<td>251</td>
+			<td>98.96\%</td>
+			<td>0.83</td>
+			<td>615</td>
+		</tr>
+		<tr>
+			<td>MPT-IRRT*</td>
+			<td>97.68\%</td>
+			<td>0.07</td>
+			<td>133</td>
+			<td>98.96\%</td>
+			<td>0.74</td>
+			<td>557</td>
+		</tr>
+	</tbody>
+</table>
+
 ### Contributing
 
+This code base is currently for reviewing purpose alone. Please do not distribute.
