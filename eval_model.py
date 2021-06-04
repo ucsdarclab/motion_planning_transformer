@@ -165,7 +165,7 @@ def get_patch(model, start_pos, goal_pos, input_map):
     :param input_map:
     '''
     # Identitfy Anchor points
-    encoder_input = get_encoder_input(input_map, goal_pos[::-1], start_pos[::-1])
+    encoder_input = get_encoder_input(input_map, goal_pos, start_pos)
     hashTable = getHashTable(input_map.shape)
     predVal = model(encoder_input[None,:].float().cuda())
     predClass = predVal[0, :, :].max(1)[1]
@@ -179,10 +179,10 @@ def get_patch(model, start_pos, goal_pos, input_map):
     for pos in possAnchor:
         goal_start_x = max(0, pos[0]- receptive_field//2)
         goal_start_y = max(0, pos[1]- receptive_field//2)
-        goal_end_x = min(map_size[1], pos[0]+ receptive_field//2)
-        goal_end_y = min(map_size[0], pos[1]+ receptive_field//2)
+        goal_end_x = min(map_size[0], pos[0]+ receptive_field//2)
+        goal_end_y = min(map_size[1], pos[1]+ receptive_field//2)
         patch_map[goal_start_y:goal_end_y, goal_start_x:goal_end_x] = 1.0
-    return patch_map
+    return patch_map, predProb
 
 device='cuda' if torch.cuda.is_available() else 'cpu'
 
