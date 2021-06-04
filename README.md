@@ -43,7 +43,7 @@ To collect data samples for the car environment you can run the following comman
 python3 sst_map.py --start=... --numEnv=... --numPaths=... --fileDir=...
 ```
 
-You can download all the data we used for training from [here]().
+You can download all the data we used for training from [here](https://drive.google.com/drive/folders/1uP_l_pLLljRv6sn5xlcCkq3iTiuKHdDA?usp=sharing).
 
 ### Training
 
@@ -87,37 +87,37 @@ python3 eval_model.py --modelFolder=... --valDataFolder=... --start=... --numEnv
 		</tr>
 		<tr>
 			<td>RRT*</td>
-			<td>99.88\%</td>
+			<td>99.88%</td>
 			<td>5.44</td>
 			<td>3227.5</td>
-			<td>100\%</td>
+			<td>100%</td>
 			<td>5.36</td>
 			<td>2042</td>
 		</tr>
 		<tr>
 			<td>IRRT*</td>
-			<td>99.88\%</td>
+			<td>99.88%</td>
 			<td>0.42</td>
 			<td>267</td>
-			<td>100\%</td>
+			<td>100%</td>
 			<td>3.13</td>
 			<td>1393.5</td>
 		</tr>
 		<tr>
 			<td>MPT-RRT*</td>
-			<td>97.68\%</td>
+			<td>97.68%</td>
 			<td>0.20</td>
 			<td>251</td>
-			<td>98.96\%</td>
+			<td>98.96%</td>
 			<td>0.83</td>
 			<td>615</td>
 		</tr>
 		<tr>
 			<td>MPT-IRRT*</td>
-			<td>97.68\%</td>
+			<td>97.68%</td>
 			<td>0.07</td>
 			<td>133</td>
-			<td>98.96\%</td>
+			<td>98.96%</td>
 			<td>0.74</td>
 			<td>557</td>
 		</tr>
