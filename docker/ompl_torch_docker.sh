@@ -1,7 +1,7 @@
-# A script to run ompl-docker
+# A script to run mpt docker
 
 docker run -it \
-    -p $1:8800 \
+    -p 8888:8888 \
     --gpus all \
     --shm-size="16g"\
     -e DISPLAY=$DISPLAY \
@@ -10,5 +10,5 @@ docker run -it \
     -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
     -v ~/global_planner:/workspace \
     -v ~/global_planner_data:/root/data \
-    pytorch/pytorch:1.7.1-cuda11.0-cudnn8-jupyter-ompl\
+	mpt:latest \
     bash
