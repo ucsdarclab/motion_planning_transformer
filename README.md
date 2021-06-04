@@ -25,8 +25,10 @@ docker load -i mpt_container.tar
 To run the container, run the following command:
 
 ```
-docker run -it --gpus all --shm-size="16G" -v ~/global_planner_data:/root/data
+docker run -it --gpus all --shm-size="16G" -v ~/global_planner_data:/root/data bash
 ```
+
+You can run the script in `docker/ompl_torch_docker.sh`. Attach the folder containing the data to `/root/data` and the folder with the code to `/workspace`.
 
 ### Creating Dataset
 To generate training or validation data set for the point environment you can run the following command:
@@ -51,6 +53,9 @@ To train the data, run the following command:
 python3 train.py --batchSize=... --mazeDir=... --forestDir=... --fileDir=...
 ```
 
+### Pre-trained Models
+You can download the pretrained models for the point robot and Dubins Car Model from [here](https://drive.google.com/file/d/1kd-n9NyybQueJbL1ud4Bf6PhK99gLhkT/view?usp=sharing) and [here](). We have included models at multiple epochs, all our results use the model at the 69th epoch.
+
 ### Evaluation
 
 To evaluate a set of validation paths, you can run the following code:
@@ -59,8 +64,6 @@ To evaluate a set of validation paths, you can run the following code:
 python3 eval_model.py --modelFolder=... --valDataFolder=... --start=... --numEnv=... --epoch=... --numPaths=...
 ```
 
-### Pre-trained Models
-You can download the pretrained models for the point robot and Dubins Car Model from [here]() and [here]().
 
 ### Results
 
@@ -120,6 +123,10 @@ You can download the pretrained models for the point robot and Dubins Car Model 
 		</tr>
 	</tbody>
 </table>
+
+
+### Visualizing Trajectories
+To visualize trajectories, you can use the `VisualizeTrajectories.ipynb` notebook to view the paths.
 
 ### Contributing
 
