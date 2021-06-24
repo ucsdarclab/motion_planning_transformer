@@ -4,7 +4,7 @@ The network architecture for Motion Planning Transformers (MPT).
 ![Transformer Figure](transformer_fig.jpg)
 
 ### Requirements
-All our experiments were conducted on `Ubuntu18.04` with `Python3.6`. To generate the data, and evaluate the planner you will need the [OMPL-1.4.2](https://ompl.kavrakilab.org/index.html) library with the Python bindings.
+All our experiments were conducted on `Ubuntu18.04` with `Python3.6` with `CUDA11.0`. To generate the data, and evaluate the planner you will need the [OMPL-1.4.2](https://ompl.kavrakilab.org/index.html) library with the Python bindings.
 
 Other python dependencies are given in `requirements.txt`. You can install the package using pip:
 
@@ -14,7 +14,7 @@ pip3 install -r requirments.txt
 
 #### Using Docker
 
-We highly recommend that to replicate our testing environment, users can use our docker container which contains all the necessary libraries packages. Download the `.tar` [file](https://drive.google.com/file/d/154E338PduQPHfO0sUqA8ZST1GaQodY41/view?usp=sharing).
+We highly recommend that to replicate our testing environment, users can use our docker container which contains all the necessary libraries packages. Please use the latest version of [nvidia-docker2](https://github.com/NVIDIA/nvidia-docker). Download the `.tar` [file](https://drive.google.com/file/d/154E338PduQPHfO0sUqA8ZST1GaQodY41/view?usp=sharing).
 
 To load the image from the `tar` file, run the following:
 
@@ -126,7 +126,14 @@ python3 eval_model.py --modelFolder=... --valDataFolder=... --start=... --numEnv
 
 
 ### Visualizing Trajectories
-To visualize trajectories, you can use the `VisualizeTrajectories.ipynb` notebook to view the paths.
+To visualize trajectories, you can use the `VisualizeTrajectories.ipynb` notebook to view the paths. To spin up the jupyter notebook, you can run the following command inside the container environment.
+
+```
+export JUPYTER_TOKEN=mpt
+jupyter notebook --allow-root --no-browser --ip=0.0.0.0. --port=8888
+```
+
+When prompted for a token enter `mpt`.
 
 ### Contributing
 
