@@ -176,7 +176,7 @@ def get_patch(model, start_pos, goal_pos, input_map):
     :param input_map:
     '''
     # Identitfy Anchor points
-    encoder_input = get_encoder_input(input_map, goal_pos[::-1], start_pos[::-1])
+    encoder_input = get_encoder_input(input_map, goal_pos, start_pos)
     hashTable = getHashTable(input_map.shape)
     predVal = model(encoder_input[None,:].float().cuda())
     predClass = predVal[0, :, :].max(1)[1]
