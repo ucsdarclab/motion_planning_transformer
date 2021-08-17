@@ -78,7 +78,7 @@ def getPathLengthObjective(cost, si):
     return obj
 
 
-def get_path(start, goal, input_map, patch_map, plannerType, cost):
+def get_path(start, goal, input_map, patch_map, plannerType, cost, exp=False):
     '''
     Plan a path given the start, goal and patch_map.
     :param start:
@@ -86,6 +86,7 @@ def get_path(start, goal, input_map, patch_map, plannerType, cost):
     :param patch_map:
     :param plannerType: The planner type to use
     :param cost: The cost of the path
+    :param exp: If exploration is enabled
     returns bool: Returns True if a path was planned successfully.
     '''
     mapSize = input_map.shape
@@ -133,10 +134,18 @@ def get_path(start, goal, input_map, patch_map, plannerType, cost):
     planner.setup()
 
     # Attempt to solve the planning problem in the given time
-    startTime = time.time()
-    solved = planner.solve(30.0)
-    planTime = time.time()-startTime
-
+    if exp:        
+        startTime = time.time()
+        solved = planner.solve(1.0)
+        if not pdef.hasExactSolution():
+            NewValidityCheckerObj = ValidityChecker(si, input_map)
+            si.setStateValidityChecker(NewValidityCheckerObj)
+            solved = planner.solve(89.0)
+        planTime = time.time()-startTime
+    else:
+        startTime = time.time()
+        solved = planner.solve(90)
+        planTime = time.time() - startTime
     plannerData = ob.PlannerData(si)
     planner.getPlannerData(plannerData)
     numVertices = plannerData.numVertices()
@@ -266,7 +275,7 @@ if __name__=="__main__":
                     goal_end_y = min(map_size[0], pos[1]+ receptive_field//2)
                     patch_map[goal_start_y:goal_end_y, goal_start_x:goal_end_x] = 1.0
                 cost = np.linalg.norm(np.diff(path, axis=0), axis=1).sum()
-                _, t, v, s = get_path(path[0, :], path[-1, :], small_map, patch_map, args.plannerType, cost)
+                _, t, v, s = get_path(path[0, :], path[-1, :], small_map, patch_map, args.plannerType, cost, exp=True)
                 pathSuccess.append(s)
                 pathTime.append(t)
                 pathVertices.append(v)
