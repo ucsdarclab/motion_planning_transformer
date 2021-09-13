@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
     # Validation Data
     valDataset = PathPatchDataLoader(
-        env_list=list(range(100)), 
+        env_list=list(range(1000)), 
         dataFolder='/root/data/forest/val'
     )
     validationData = DataLoader(valDataset, num_workers=5, collate_fn=PaddedSequenceUnet, batch_size=batch_size)
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     val_loss = []
     train_n_overlap_list = []
     val_n_overlap_list = []
-    trainDataFolder  = '/root/data/unet/model0'
+    trainDataFolder  = '/root/data/unet/model1'
     # Save the model parameters as .json file
     json.dump(
         model_args, 
