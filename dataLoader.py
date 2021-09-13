@@ -28,6 +28,18 @@ def PaddedSequence(batch):
     data['length'] = torch.tensor([batch_i['anchor'].shape[0] for batch_i in batch if batch_i is not None])
     return data
 
+
+def PaddedSequenceUnet(batch):
+    '''
+    This should be passed to DataLoader class to collate batched samples with various length.
+    :param batch: The batch to consolidate
+    '''
+    data = {}
+    data['map'] = torch.cat([batch_i['map'][None, :] for batch_i in batch if batch_i is not None])
+    data['mask'] = torch.cat([batch_i['mask'][None, :] for batch_i in batch if batch_i is not None])
+    return data
+
+
 map_size = (480, 480)
 receptive_field = 32
 res = 0.05 # meter/pixels
@@ -89,6 +101,85 @@ def get_encoder_input(InputMap, goal_pos, start_pos):
     start_end_x = min( map_size[0], start_pos[1]+ receptive_field//2)
     context_map[start_start_x:start_end_x, start_start_y:start_end_y] = -1.0
     return torch.as_tensor(np.concatenate((InputMap[None, :], context_map[None, :])))
+
+
+class PathPatchDataLoader(Dataset):
+    '''Loads each image, with input images and output patches. Used to train
+    UNet architecture model.
+    '''
+    def __init__(self, env_list, dataFolder):
+        '''
+        :param env_list: The list of map environmens to collect data from.
+        :param samples: The number of paths to use from each folder.
+        :param dataFolder: The parent folder where the files are located.
+            It should follow the following format:
+                env1/path_0.p
+                    ...
+                env2/path_0.p
+                    ...
+                    ...                
+        '''
+        assert isinstance(env_list, list), "Needs to be a list"
+        self.num_env = len(env_list)
+        self.env_list = env_list
+
+        # capture only the successful trajectories
+        self.indexDict = []
+        for envNum in env_list:
+            for i in range(len(os.listdir(osp.join(dataFolder, f'env{envNum:06d}')))-1):
+                with open(osp.join(dataFolder, f'env{envNum:06d}', f'path_{i}.p'), 'rb') as f:
+                    if pickle.load(f)['success']:
+                        self.indexDict.append((envNum, i))
+        
+        # self.indexDict = [(envNum, i) 
+        #     for envNum in env_list 
+        #         for i in range(len(os.listdir(osp.join(dataFolder, f'env{envNum:06d}')))-1)
+        #     ]
+        self.dataFolder = dataFolder
+
+    def __len__(self):
+        return len(self.indexDict)
+
+    def __getitem__(self, idx):
+        '''
+        Returns the sample at index idx.
+        returns dict: A dictionary of the encoded map and target classes.
+        '''
+        env, idx_sample = self.indexDict[idx]
+        mapEnvg = skimage.io.imread(osp.join(self.dataFolder, f'env{env:06d}', f'map_{env}.png'), as_gray=True)
+        
+        with open(osp.join(self.dataFolder, f'env{env:06d}', f'path_{idx_sample}.p'), 'rb') as f:
+            data = pickle.load(f)
+
+        if data['success']:
+            path = data['path_interpolated']
+            # Mark goal region
+            goal_index = geom2pix(path[-1, :])
+            start_index = geom2pix(path[0, :])
+            mapEncoder = get_encoder_input(mapEnvg, goal_index, start_index)            
+
+            AnchorPointsPos = []
+            AnchorPointsXY = []
+            for pos in path:
+                indices, = geom2pixMatpos(pos)
+                for index in indices:
+                    if index not in AnchorPointsPos:
+                        AnchorPointsPos.append(index)
+                        AnchorPointsXY.append(hashTable[index])
+
+            # Generate patch map
+            maskMap = np.zeros_like(mapEnvg)
+            for pos in AnchorPointsXY:
+                goal_start_x = max(0, pos[0]- receptive_field//2)
+                goal_start_y = max(0, pos[1]- receptive_field//2)
+                goal_end_x = min(map_size[1], pos[0]+ receptive_field//2)
+                goal_end_y = min(map_size[0], pos[1]+ receptive_field//2)
+                maskMap[goal_start_y:goal_end_y, goal_start_x:goal_end_x] = 1.0
+
+            return {
+                'map':torch.as_tensor(mapEncoder), 
+                'mask': torch.as_tensor(maskMap, dtype=int)
+            }
 
 class PathDataLoader(Dataset):
     '''Loads each path, and extracts the masked positive and negative regions
