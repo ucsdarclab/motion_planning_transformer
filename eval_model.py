@@ -20,7 +20,8 @@ try:
 except ImportError:
     raise ImportError("Container does not have OMPL installed")
 
-from transformer import Models
+from transformer import Models as tfModel
+from unet import Models as unetModel
 from utils import geom2pix, ValidityChecker
 from dataLoader import get_encoder_input
 
@@ -195,10 +196,31 @@ def get_patch(model, start_pos, goal_pos, input_map):
         patch_map[goal_start_y:goal_end_y, goal_start_x:goal_end_x] = 1.0
     return patch_map
 
+def get_patch_unet(model, start_pos, goal_pos, input_map):
+    '''
+    Return the patch map for the given start and goal position, and the network
+    architecture.
+    :param model: A UNetModel
+    :param start: 
+    :param goal:
+    :param input_map:
+    '''
+    # Identitfy Anchor points
+    encoder_input = get_encoder_input(input_map, goal_pos, start_pos)
+    predVal = model(encoder_input[None,:].float().cuda())
+    patch_map = torch.argmax(predVal.cpu(), dim=1).squeeze().numpy()
+    return patch_map
+
 device='cuda' if torch.cuda.is_available() else 'cpu'
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--segmentType',
+        help='The underlying segmentation method to use',
+        required=True,
+        choices=['mpt', 'unet']
+    )
     parser.add_argument(
         '--plannerType', 
         help='The underlying sampler to use', 
@@ -211,6 +233,7 @@ if __name__=="__main__":
     parser.add_argument('--samples', help='Start of environment number', required=True, type=int)
     parser.add_argument('--epoch', help='Model epoch number to test', required=True, type=int)
     parser.add_argument('--numPaths', help='Number of start and goal pairs for each env', default=1, type=int)
+    parser.add_argument('--explore', help='Explore the environment w/o the mask', dest='explore', action='store_true')
 
     args = parser.parse_args()
 
@@ -221,22 +244,27 @@ if __name__=="__main__":
     start = args.start
 
     model_param = json.load(open(modelFile))
-    transformer = Models.Transformer(
-        **model_param
-    )
+    if args.segmentType =='mpt':
+        model = tfModel.Transformer(
+            **model_param
+        )
+    elif args.segmentType == 'unet':
+        model = unetModel.UNet(
+            **model_param
+        )
 
-    transformer.to(device)
+    model.to(device)
 
     receptive_field=32
     # Load model parameters
     epoch = args.epoch
     checkpoint = torch.load(osp.join(modelFolder, f'model_epoch_{epoch}.pkl'))
-    transformer.load_state_dict(checkpoint['state_dict'])
+    model.load_state_dict(checkpoint['state_dict'])
 
     # valDataFolder
     valDataFolder = args.valDataFolder
     # Only do evaluation - Need this for the problem to work with maps of different sizes.
-    transformer.eval()
+    model.eval()
     # Get path data
     pathSuccess = []
     pathTime = []
@@ -256,26 +284,33 @@ if __name__=="__main__":
                 goal_pos = geom2pix(path[0, :], size=mapSize)
                 start_pos = geom2pix(path[-1, :], size=mapSize)
 
-                # Identitfy Anchor points
-                encoder_input = get_encoder_input(small_map, goal_pos, start_pos)
-                # NOTE: Currently only valid for map sizes of certain multiples.
-                predVal = transformer(encoder_input[None,:].float().cuda())
-                predClass = predVal[0, :, :].max(1)[1]
+                if args.segmentType =='mpt':
+                    # NOTE: THIS IS NEEDS TO BE TESTED!!
+                    # NOTE: All earlier data was gathered using hard coded 
+                    patch_map = get_patch(model, start_pos, goal_pos, small_map)
+                elif args.segmentType == 'unet':
+                    patch_map = get_patch_unet(model, start_pos, goal_pos, small_map)
+                
+                # # Identitfy Anchor points
+                # encoder_input = get_encoder_input(small_map, goal_pos, start_pos)
+                # # NOTE: Currently only valid for map sizes of certain multiples.
+                # predVal = model(encoder_input[None,:].float().cuda())
+                # predClass = predVal[0, :, :].max(1)[1]
 
-                predProb = F.softmax(predVal[0, :, :], dim=1)
-                possAnchor = [hashTable[i] for i, label in enumerate(predClass) if label==1]
+                # predProb = F.softmax(predVal[0, :, :], dim=1)
+                # possAnchor = [hashTable[i] for i, label in enumerate(predClass) if label==1]
 
-                # Generate Patch Maps
-                patch_map = np.zeros_like(small_map)
-                map_size = small_map.shape
-                for pos in possAnchor:
-                    goal_start_x = max(0, pos[0]- receptive_field//2)
-                    goal_start_y = max(0, pos[1]- receptive_field//2)
-                    goal_end_x = min(map_size[1], pos[0]+ receptive_field//2)
-                    goal_end_y = min(map_size[0], pos[1]+ receptive_field//2)
-                    patch_map[goal_start_y:goal_end_y, goal_start_x:goal_end_x] = 1.0
+                # # Generate Patch Maps
+                # patch_map = np.zeros_like(small_map)
+                # map_size = small_map.shape
+                # for pos in possAnchor:
+                #     goal_start_x = max(0, pos[0]- receptive_field//2)
+                #     goal_start_y = max(0, pos[1]- receptive_field//2)
+                #     goal_end_x = min(map_size[1], pos[0]+ receptive_field//2)
+                #     goal_end_y = min(map_size[0], pos[1]+ receptive_field//2)
+                #     patch_map[goal_start_y:goal_end_y, goal_start_x:goal_end_x] = 1.0
                 cost = np.linalg.norm(np.diff(path, axis=0), axis=1).sum()
-                _, t, v, s = get_path(path[0, :], path[-1, :], small_map, patch_map, args.plannerType, cost, exp=True)
+                _, t, v, s = get_path(path[0, :], path[-1, :], small_map, patch_map, args.plannerType, cost, exp=args.explore)
                 pathSuccess.append(s)
                 pathTime.append(t)
                 pathVertices.append(v)
@@ -285,5 +320,8 @@ if __name__=="__main__":
                 pathVertices.append(0)
 
     pathData = {'Time':pathTime, 'Success':pathSuccess, 'Vertices':pathVertices}
-    pickle.dump(pathData, open(osp.join(modelFolder, f'eval_val_plan_{args.plannerType}_{start:06d}.p'), 'wb'))
-    print(sum(pathSuccess))
+    if args.explore:
+        fileName = osp.join(modelFolder, f'eval_val_plan_exp_{args.segmentType}_{args.plannerType}_{start:06d}.p')
+    else:
+        fileName = osp.join(modelFolder, f'eval_val_plan_{args.segmentType}_{args.plannerType}_{start:06d}.p')
+    pickle.dump(pathData, open(fileName, 'wb'))
