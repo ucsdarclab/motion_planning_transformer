@@ -150,14 +150,14 @@ if __name__ == "__main__":
 
     # Training with Mixed samples
     trainDataset = PathPatchDataLoader(
-        env_list=list(range(20)),
+        env_list=list(range(1750)),
         dataFolder='/root/data/forest/train'
     )
     trainingData = DataLoader(trainDataset, num_workers=15, collate_fn=PaddedSequenceUnet, batch_size=batch_size)
 
     # Validation Data
     valDataset = PathPatchDataLoader(
-        env_list=list(range(5)), 
+        env_list=list(range(1000)), 
         dataFolder='/root/data/forest/val'
     )
     validationData = DataLoader(valDataset, num_workers=5, collate_fn=PaddedSequenceUnet, batch_size=batch_size)
