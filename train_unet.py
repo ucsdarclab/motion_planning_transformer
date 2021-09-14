@@ -17,7 +17,8 @@ import torch.nn.functional as F
 from tqdm import tqdm
 from os import path as osp
 
-from transformer import Optim
+import torch.optim as optim
+
 from unet import Models
 from dataLoader import PathPatchDataLoader, PaddedSequenceUnet, PathMixedDataLoader
 from utils import png_decoder, cls_decoder
@@ -63,7 +64,7 @@ def cal_performance_unet(predVals, trueLabels):
     return loss, dl
 
 
-def train_epoch(model, trainingData, optimizer, device):
+def train_epoch(model, trainingData, optimizer, scheduler, device):
     '''
     Train the model for 1-epoch with data from wds
     '''
@@ -81,9 +82,10 @@ def train_epoch(model, trainingData, optimizer, device):
             predVal, batch['mask'].to(device)
         ) 
         loss.backward()
-        optimizer.step_and_update_lr()
+        optimizer.step()
         total_loss +=loss.item()
         total_overlap += dl.item()
+    scheduler.step()
     return total_loss, total_overlap
 
 
@@ -143,24 +145,19 @@ if __name__ == "__main__":
     unet.to(device=device)
 
     # Define the optimizer
-    # TODO: What does these parameters do ???
-    optimizer = Optim.ScheduledOptim(
-        optim.Adam(unet.parameters(), betas=(0.9, 0.98), eps=1e-9),
-        lr_mul = 0.5,
-        d_model = 256,
-        n_warmup_steps = 3200
-    )
-    
+    optimizer = optim.Adam(filter(lambda p: p.requires_grad, unet.parameters()), lr=1e-4)
+    exp_lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+
     # Training with Mixed samples
     trainDataset = PathPatchDataLoader(
-        env_list=list(range(1000)),
+        env_list=list(range(20)),
         dataFolder='/root/data/forest/train'
     )
     trainingData = DataLoader(trainDataset, num_workers=15, collate_fn=PaddedSequenceUnet, batch_size=batch_size)
 
     # Validation Data
     valDataset = PathPatchDataLoader(
-        env_list=list(range(1000)), 
+        env_list=list(range(5)), 
         dataFolder='/root/data/forest/val'
     )
     validationData = DataLoader(valDataset, num_workers=5, collate_fn=PaddedSequenceUnet, batch_size=batch_size)
@@ -172,7 +169,7 @@ if __name__ == "__main__":
     val_loss = []
     train_n_overlap_list = []
     val_n_overlap_list = []
-    trainDataFolder  = '/root/data/unet/model1'
+    trainDataFolder  = '/root/data/unet/model2'
     # Save the model parameters as .json file
     json.dump(
         model_args, 
@@ -182,7 +179,7 @@ if __name__ == "__main__":
     )
     writer = SummaryWriter(log_dir=trainDataFolder)
     for n in range(n_epochs):
-        train_total_loss, train_n_overlap = train_epoch(unet, trainingData, optimizer, device)
+        train_total_loss, train_n_overlap = train_epoch(unet, trainingData, optimizer, exp_lr_scheduler, device)
         val_total_loss, val_n_overlap = eval_epoch(unet, validationData, device)
         print(f"Epoch {n} Loss: {train_total_loss}")
         print(f"Epoch {n} Loss: {val_total_loss}")
@@ -201,7 +198,7 @@ if __name__ == "__main__":
                 state_dict = unet.state_dict()
             states = {
                 'state_dict': state_dict,
-                'optimizer': optimizer._optimizer.state_dict(),
+                'optimizer': optimizer.state_dict(),
                 'torch_seed': torch_seed
             }
             torch.save(states, osp.join(trainDataFolder, 'model_epoch_{}.pkl'.format(n)))
