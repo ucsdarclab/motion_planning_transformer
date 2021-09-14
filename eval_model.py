@@ -99,8 +99,6 @@ def get_path(start, goal, input_map, patch_map, plannerType, cost, exp=False):
     bounds.setHigh(1, mapSize[0]*res) # Set height bounds (y)
     space.setBounds(bounds)
     si = ob.SpaceInformation(space)
-    # Tried importance sampling, but seems like it makes not much improvement 
-    # over rejection sampling.
     ValidityCheckerObj = ValidityChecker(si, input_map, patch_map)
     si.setStateValidityChecker(ValidityCheckerObj)
 
@@ -191,10 +189,10 @@ def get_patch(model, start_pos, goal_pos, input_map):
     for pos in possAnchor:
         goal_start_x = max(0, pos[0]- receptive_field//2)
         goal_start_y = max(0, pos[1]- receptive_field//2)
-        goal_end_x = min(map_size[1], pos[0]+ receptive_field//2)
-        goal_end_y = min(map_size[0], pos[1]+ receptive_field//2)
+        goal_end_x = min(map_size[0], pos[0]+ receptive_field//2)
+        goal_end_y = min(map_size[1], pos[1]+ receptive_field//2)
         patch_map[goal_start_y:goal_end_y, goal_start_x:goal_end_x] = 1.0
-    return patch_map
+    return patch_map, predProb
 
 def get_patch_unet(model, start_pos, goal_pos, input_map):
     '''
@@ -230,7 +228,7 @@ if __name__=="__main__":
     parser.add_argument('--modelFolder', help='Directory where model_params.json exists', required=True)
     parser.add_argument('--valDataFolder', help='Directory where training data exists', required=True)
     parser.add_argument('--start', help='Start of environment number', required=True, type=int)
-    parser.add_argument('--samples', help='Start of environment number', required=True, type=int)
+    parser.add_argument('--numEnv', help='Number of environments', required=True, type=int)
     parser.add_argument('--epoch', help='Model epoch number to test', required=True, type=int)
     parser.add_argument('--numPaths', help='Number of start and goal pairs for each env', default=1, type=int)
     parser.add_argument('--explore', help='Explore the environment w/o the mask', dest='explore', action='store_true')
@@ -269,7 +267,7 @@ if __name__=="__main__":
     pathSuccess = []
     pathTime = []
     pathVertices = []
-    for env_num in range(start, start+args.samples):
+    for env_num in range(start, start+args.numEnv):
         temp_map =  osp.join(valDataFolder, f'env{env_num:06d}/map_{env_num}.png')
         small_map = skimage.io.imread(temp_map, as_gray=True)
         mapSize = small_map.shape

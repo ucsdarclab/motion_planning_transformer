@@ -214,13 +214,12 @@ def start_map_collection_rrt(start, samples, envType, numPaths, fileDir, mapFile
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--start', help='Start of the sample index', required=True, type=int)
-    parser.add_argument('--samples', help='Number of samples to collect', required=True, type=int)
+    parser.add_argument('--numEnv', help='Number of Environments to collect', required=True, type=int)
     parser.add_argument('--envType', help='Type of environment', choices=['maze', 'forest', 'realworld'])
     parser.add_argument('--numPaths', help='Number of paths to collect', default=1, type=int)
     parser.add_argument('--fileDir', help='The Folder to save the files', required=True)
-    parser.add_argument('--mapFile', help='The map to plan on')
-
+    parser.add_argument('--mapFile', help='Need to provide mapFile, if generating data for real world maps')
 
     args = parser.parse_args()
 
-    start_map_collection_rrt(args.start, args.samples, args.envType, args.numPaths, args.fileDir, args.mapFile)
+    start_map_collection_rrt(args.start, args.numEnv, args.envType, args.numPaths, args.fileDir, args.mapFile)
