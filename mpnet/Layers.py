@@ -69,19 +69,6 @@ class Encoder(nn.Module):
             nn.PReLU(),
             Rearrange('b c h w -> b (c h w)')
         )
-
-
-    @torch.jit.ignore
-    def get_contractive_loss(self):
-        """
-        Return contractive loss for the outer layer
-        """
-        keys = list(self.head.state_dict().keys())
-        W = Variable(self.head.state_dict()[keys[-2]])
-        if torch.cuda.is_available():
-            W = W.cuda()
-        contractive_loss = torch.sum(W**2, dim=1).sum()
-        return contractive_loss
-
+        
     def forward(self, obs):
         return self.encoder(obs)

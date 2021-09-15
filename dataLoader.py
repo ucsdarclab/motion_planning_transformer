@@ -40,6 +40,18 @@ def PaddedSequenceUnet(batch):
     return data
 
 
+def PaddedSequenceMPnet(batch):
+    '''
+    This should be passed to the dataLoader class to collate batched samples with various lengths
+    :param batch: The batch to consolidate.
+    '''
+    data = {}
+    data['map'] = torch.cat([batch_i['map'][None, :, :] for batch_i in batch])
+    data['inputs'] = pad_sequence([batch_i['inputs'] for batch_i in batch], batch_first=True)
+    data['targets'] = pad_sequence([batch_i['targets'] for batch_i in batch], batch_first=True)
+    data['length'] = torch.tensor([batch_i['inputs'].size(0) for batch_i in batch])
+    return data
+
 map_size = (480, 480)
 receptive_field = 32
 res = 0.05 # meter/pixels
@@ -186,7 +198,7 @@ class PathSeqDataLoader(Dataset):
     for planning.
     '''
 
-    def __init__(self, env_list, dataFolder):
+    def __init__(self, env_list, dataFolder, worldMapBounds):
         '''
         :param env_list: The list of map environments to collect data from.
         :param samples: The number of paths to use from each folder.
@@ -197,24 +209,28 @@ class PathSeqDataLoader(Dataset):
                 env2/path_0.p
                     ...
                     ...
+        :param worldMapBounds: The 2D bounds of the map [L x H]
         '''
         assert isinstance(env_list, list), "Needs to be a list"
         self.num_env = len(env_list)
         self.env_list = env_list
-        self.indexDict = [(envNum, i) 
-            for envNum in env_list 
-                for i in range(len(os.listdir(osp.join(dataFolder, f'env{envNum:06d}')))-1)
-            ]
+        # capture only the successful trajectories
+        self.indexDict = []
+        for envNum in env_list:
+            for i in range(len(os.listdir(osp.join(dataFolder, f'env{envNum:06d}')))-1):
+                with open(osp.join(dataFolder, f'env{envNum:06d}', f'path_{i}.p'), 'rb') as f:
+                    if pickle.load(f)['success']:
+                        self.indexDict.append((envNum, i))
         self.dataFolder = dataFolder
+        self.worldMapBounds = worldMapBounds if isinstance(worldMapBounds, np.ndarray) else np.array(worldMapBounds)
     
-
     def __len__(self):
         return len(self.indexDict)
     
     def __getitem__(self, idx):
         '''
         Returns the sample at index idx.
-        returns dict: A dictonary of the map 
+        returns dict: A dictonary containing maps and different combination of start and goal 
         '''
         env, idx_sample = self.indexDict[idx]
         mapEnvg = skimage.io.imread(osp.join(self.dataFolder, f'env{env:06d}', f'map_{env}.png'), as_gray=True)
@@ -222,16 +238,17 @@ class PathSeqDataLoader(Dataset):
         with open(osp.join(self.dataFolder, f'env{env:06d}', f'path_{idx_sample}.p'), 'rb') as f:
             data = pickle.load(f)
 
-        if data['success']:
-            path = data['path']
-            
-            # TODO: Normalize path data
-            # TODO: Randomly assign start and goal position
-            # TODO: Get net prediction point 
-            return {
-                'map':torch.as_tensor(mapEnvg), 
-                'inputs': None, 
-                'targets': None
+        # Noramalize the data
+        path = (data['path']/self.worldMapBounds)*2-1
+        # Combine goal and start position
+        nInput = np.c_[path[:-1, :], np.array([[1]]*(path.shape[0]-1))*path[-1][None,:]]
+        # Get Predicted point
+        nTarget = path[1:, :]
+
+        return {
+                'map':torch.as_tensor(mapEnvg[None, :], dtype=torch.float), 
+                'inputs': torch.as_tensor(nInput, dtype=torch.float), 
+                'targets': torch.as_tensor(nTarget, dtype=torch.float)
             }
 
 class PathDataLoader(Dataset):

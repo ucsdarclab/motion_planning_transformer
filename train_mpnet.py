@@ -17,31 +17,9 @@ from tqdm import tqdm
 from os import path as osp
 
 from mpnet import Models
-# TODO: write the required data loader
-# from dataLoader import PathDataLoader, PaddedSequence, PathMixedDataLoader
+from dataLoader import PathSeqDataLoader, PaddedSequenceMPnet
 
 from torch.utils.tensorboard import SummaryWriter
-
-# TODO: Write a performance evaluation
-def cal_performance(predVals, trueVals):
-    '''
-    Return the loss 
-    :param predVals: the output of the final linear layer.
-    :param anchorPoints: The anchor points of interest
-    :param trueLabels: The expected clas of the corresponding anchor points.
-    :param lengths: The legths of each of sequence in the batch
-    :returns (loss, n_correct): The loss of the model and number of avg predictions.
-    '''
-    n_correct = 0
-    total_loss = 0
-    for predVal, anchorPoint, trueLabel, length in zip(predVals, anchorPoints, trueLabels, lengths):
-        predVal = predVal.index_select(0, anchorPoint[:length])
-        trueLabel = trueLabel[:length]
-        loss = F.cross_entropy(predVal, trueLabel)
-        total_loss += loss
-        classPred = predVal.max(1)[1]
-        n_correct +=classPred.eq(trueLabel[:length]).sum().item()/length
-    return total_loss, n_correct
 
 # TODO: Write the code for performing training for one epoch
 def train_epoch(model, trainingData, optimizer, device):
@@ -50,25 +28,20 @@ def train_epoch(model, trainingData, optimizer, device):
     '''
     model.train()
     total_loss = 0
-    total_n_correct = 0
     # Train for a single epoch.
     for batch in tqdm(trainingData, mininterval=2):
-        
         optimizer.zero_grad()
-        encoder_input = batch['map'].float().to(device)
-        predVal = model(encoder_input)
-
-        # Calculate the cross-entropy loss
-        loss, n_correct = cal_performance(
-            predVal, batch['anchor'].to(device), 
-            batch['labels'].to(device), 
-            batch['length'].to(device)
-        )
+        encoder_input = batch['map'].to(device)
+        encoder_val = model.get_environment_encoding(encoder_input)
+        loss = 0
+        for i, l in enumerate(batch['length']):
+            nInputs = torch.hstack([encoder_val[i, :].repeat(l, 1), batch['inputs'][i, :l, :].to(device)])
+            predTarget = mpnet(nInputs)
+            loss += F.mse_loss(predTarget, batch['targets'][i, :l, :].to(device))
         loss.backward()
-        optimizer.step_and_update_lr()
+        optimizer.step()
         total_loss +=loss.item()
-        total_n_correct += n_correct
-    return total_loss, total_n_correct
+    return total_loss
 
 # TODO: Write the code for performing evalution of validation data.
 def eval_epoch(model, validationData, device):
@@ -79,25 +52,19 @@ def eval_epoch(model, validationData, device):
     :param device: cpu/cuda to be used.
     '''
 
-    model.eval()
     total_loss = 0.0
     total_n_correct = 0.0
     with torch.no_grad():
         for batch in tqdm(validationData, mininterval=2):
-
-            encoder_input = batch['map'].float().to(device)
-            predVal = model(encoder_input)
-
-            loss, n_correct = cal_performance(
-                predVal, 
-                batch['anchor'].to(device), 
-                batch['labels'].to(device),
-                batch['length'].to(device)
-            )
-
+            encoder_input = batch['map'].to(device)
+            encoder_val = model.get_environment_encoding(encoder_input)
+            loss = 0
+            for i, l in enumerate(batch['length']):
+                nInputs = torch.hstack([encoder_val[i, :].repeat(l, 1), batch['inputs'][i, :l, :].to(device)])
+                predTarget = mpnet(nInputs)
+                loss += F.mse_loss(predTarget, batch['targets'][i, :l, :].to(device))
             total_loss +=loss.item()
-            total_n_correct += n_correct
-    return total_loss, total_n_correct
+    return total_loss
 
 
 def check_data_folders(folder):
@@ -145,8 +112,7 @@ if __name__ == "__main__":
     torch.manual_seed(torch_seed)
     
     model_args = dict(
-        AE_input_size=[480, 480],
-        AE_output_size=128,
+        AE_input_size=[1, 480, 480],
         state_size=2
     )
     
@@ -158,52 +124,52 @@ if __name__ == "__main__":
     mpnet.to(device=device)
 
     # Define the optimizer    
-    optimizer = optim.ScheduledOptim(mpnet.parameters(), lr=1e-4)
+    optimizer = optim.Adagrad(mpnet.parameters(), lr=1e-4)
 
     # TODO: Update the dat loader for MPNet format
-    # Training with Mixed samples
-    if maze and forest:
-        from toolz.itertoolz import partition
-        trainDataset= PathMixedDataLoader(
-            envListForest=list(range(10)),
-            dataFolderForest=osp.join(args.forestDir, 'train'),
-            envListMaze=list(range(10)),
-            dataFolderMaze=osp.join(args.mazeDir, 'train')
-        )
-        allTrainingData = trainDataset.indexDictForest + trainDataset.indexDictMaze
-        batch_sampler_train = list(partition(batch_size, allTrainingData))
-        trainingData = DataLoader(trainDataset, num_workers=15, batch_sampler=batch_sampler_train, collate_fn=PaddedSequence)
+    # # Training with Mixed samples
+    # if maze and forest:
+    #     from toolz.itertoolz import partition
+    #     trainDataset= PathMixedDataLoader(
+    #         envListForest=list(range(10)),
+    #         dataFolderForest=osp.join(args.forestDir, 'train'),
+    #         envListMaze=list(range(10)),
+    #         dataFolderMaze=osp.join(args.mazeDir, 'train')
+    #     )
+    #     allTrainingData = trainDataset.indexDictForest + trainDataset.indexDictMaze
+    #     batch_sampler_train = list(partition(batch_size, allTrainingData))
+    #     trainingData = DataLoader(trainDataset, num_workers=15, batch_sampler=batch_sampler_train, collate_fn=PaddedSequence)
 
-        valDataset = PathMixedDataLoader(
-            envListForest=list(range(10)),
-            dataFolderForest=osp.join(args.forestDir, 'val'),
-            envListMaze=list(range(10)),
-            dataFolderMaze=osp.join(args.mazeDir, 'val')
-        )
-        allValData = valDataset.indexDictForest+valDataset.indexDictMaze
-        batch_sampler_val = list(partition(batch_size, allValData))
-        validationData = DataLoader(valDataset, num_workers=5, batch_sampler=batch_sampler_val, collate_fn=PaddedSequence)
-    else:        
-        trainDataset = PathDataLoader(
-            env_list=list(range(10)),
-            dataFolder=osp.join(dataFolder, 'train')
-        )
-        trainingData = DataLoader(trainDataset, num_workers=15, collate_fn=PaddedSequence, batch_size=batch_size)
+    #     valDataset = PathMixedDataLoader(
+    #         envListForest=list(range(10)),
+    #         dataFolderForest=osp.join(args.forestDir, 'val'),
+    #         envListMaze=list(range(10)),
+    #         dataFolderMaze=osp.join(args.mazeDir, 'val')
+    #     )
+    #     allValData = valDataset.indexDictForest+valDataset.indexDictMaze
+    #     batch_sampler_val = list(partition(batch_size, allValData))
+    #     validationData = DataLoader(valDataset, num_workers=5, batch_sampler=batch_sampler_val, collate_fn=PaddedSequence)
+    # else:        
+    trainDataset = PathSeqDataLoader(
+        env_list=list(range(1750)),
+        dataFolder=osp.join(dataFolder, 'train'),
+        worldMapBounds=[480*0.05, 480*0.05]
+    )
+    trainingData = DataLoader(trainDataset, num_workers=15, collate_fn=PaddedSequenceMPnet, batch_size=batch_size)
 
-        # Validation Data
-        valDataset = PathDataLoader(
-            env_list=list(range(2500)),
-            dataFolder=osp.join(dataFolder, 'val')
-        )
-        validationData = DataLoader(valDataset, num_workers=5, collate_fn=PaddedSequence, batch_size=batch_size)
+    # Validation Data
+    valDataset = PathSeqDataLoader(
+        env_list=list(range(2500)),
+        dataFolder=osp.join(dataFolder, 'val'),
+        worldMapBounds=[480*0.05, 480*0.05]
+    )
+    validationData = DataLoader(valDataset, num_workers=5, collate_fn=PaddedSequenceMPnet, batch_size=batch_size)
 
     # Increase number of epochs.
     n_epochs = 70
     results = {}
     train_loss = []
     val_loss = []
-    train_n_correct_list = []
-    val_n_correct_list = []
     trainDataFolder  = args.fileDir
     # Save the model parameters as .json file
     json.dump(
@@ -214,17 +180,14 @@ if __name__ == "__main__":
     )
     writer = SummaryWriter(log_dir=trainDataFolder)
     for n in range(n_epochs):
-        train_total_loss, train_n_correct = train_epoch(mpnet, trainingData, optimizer, device)
-        val_total_loss, val_n_correct = eval_epoch(mpnet, validationData, device)
+        train_total_loss = train_epoch(mpnet, trainingData, optimizer, device)
+        val_total_loss = eval_epoch(mpnet, validationData, device)
         print(f"Epoch {n} Loss: {train_total_loss}")
         print(f"Epoch {n} Loss: {val_total_loss}")
-        print(f"Epoch {n} Accuracy {val_n_correct/len(valDataset)}")
 
         # Log data.
         train_loss.append(train_total_loss)
         val_loss.append(val_total_loss)
-        train_n_correct_list.append(train_n_correct)
-        val_n_correct_list.append(val_n_correct)
 
         if (n+1)%5==0:
             if isinstance(mpnet , nn.DataParallel):
@@ -242,12 +205,8 @@ if __name__ == "__main__":
             {
                 'trainLoss': train_loss, 
                 'valLoss':val_loss, 
-                'trainNCorrect':train_n_correct_list, 
-                'valNCorrect':val_n_correct_list
             }, 
             open(osp.join(trainDataFolder, 'progress.pkl'), 'wb')
             )
         writer.add_scalar('Loss/train', train_total_loss, n)
         writer.add_scalar('Loss/test', val_total_loss, n)
-        writer.add_scalar('Accuracy/train', train_n_correct/len(trainDataset), n)
-        writer.add_scalar('Accuracy/test', val_n_correct/len(valDataset), n)

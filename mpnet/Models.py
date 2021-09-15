@@ -24,7 +24,6 @@ class MPNet(nn.Module):
 
         # For accepting different input shapes
         x = self.encoder(torch.autograd.Variable(torch.rand([1] + AE_input_size)))    
-        print(x.shape[-1])
         self.mlp = MLP(x.shape[-1] + state_size*2, state_size)
 
     def get_environment_encoding(self, obs):
