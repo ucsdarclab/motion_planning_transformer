@@ -180,6 +180,59 @@ class PathPatchDataLoader(Dataset):
                 'map':torch.as_tensor(mapEncoder), 
                 'mask': torch.as_tensor(maskMap, dtype=int)
             }
+            
+class PathSeqDataLoader(Dataset):
+    '''Loads each path, and the the sequence of current the future sampled points
+    for planning.
+    '''
+
+    def __init__(self, env_list, dataFolder):
+        '''
+        :param env_list: The list of map environments to collect data from.
+        :param samples: The number of paths to use from each folder.
+        :param dataFolder: The parent folder where the files are located.
+            It should follow the following format:
+                env1/path_0.p
+                    ...
+                env2/path_0.p
+                    ...
+                    ...
+        '''
+        assert isinstance(env_list, list), "Needs to be a list"
+        self.num_env = len(env_list)
+        self.env_list = env_list
+        self.indexDict = [(envNum, i) 
+            for envNum in env_list 
+                for i in range(len(os.listdir(osp.join(dataFolder, f'env{envNum:06d}')))-1)
+            ]
+        self.dataFolder = dataFolder
+    
+
+    def __len__(self):
+        return len(self.indexDict)
+    
+    def __getitem__(self, idx):
+        '''
+        Returns the sample at index idx.
+        returns dict: A dictonary of the map 
+        '''
+        env, idx_sample = self.indexDict[idx]
+        mapEnvg = skimage.io.imread(osp.join(self.dataFolder, f'env{env:06d}', f'map_{env}.png'), as_gray=True)
+        
+        with open(osp.join(self.dataFolder, f'env{env:06d}', f'path_{idx_sample}.p'), 'rb') as f:
+            data = pickle.load(f)
+
+        if data['success']:
+            path = data['path']
+            
+            # TODO: Normalize path data
+            # TODO: Randomly assign start and goal position
+            # TODO: Get net prediction point 
+            return {
+                'map':torch.as_tensor(mapEnvg), 
+                'inputs': None, 
+                'targets': None
+            }
 
 class PathDataLoader(Dataset):
     '''Loads each path, and extracts the masked positive and negative regions
