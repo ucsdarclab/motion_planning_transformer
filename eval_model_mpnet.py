@@ -235,25 +235,27 @@ def get_path(start, goal, small_map, model, device, worldBounds):
 
     startTime = time.time()
     enc = model.get_environment_encoding(torch.tensor(small_map[None, None, :, :], dtype=torch.float, device=device))
-    for _ in range(10):
-        predTraj, reachedGoal, vertex = plan_path_mpnet(model, enc, start, goal, device, ValidityCheckerObj.isValid, worldBounds)
-        v += vertex
-        validTraj = predTraj[0, :][None, :]
-        for i, pos in enumerate(predTraj[:-1]):
-            if check_edge_collision(pos, predTraj[i+1, :], ValidityCheckerObj.isValid):
-                newTraj, success, tmpvertex = plan_path_mpnet(model, enc, pos, predTraj[i+1, :], device, ValidityCheckerObj.isValid, worldBounds)
-                v += tmpvertex if success else 0
-                # Check if trajectory is successful, else replan
-                if check_trajectory_collision(newTraj, ValidityCheckerObj.isValid):
-                    newTraj, success, tmpvertex = plan_path_rrt(pos, predTraj[i+1, :], space, si)
-                    v += tmpvertex if success else 0
-                if success:
-                    validTraj = np.r_[validTraj, newTraj[1:, :]]
-            else:
-                validTraj = np.r_[validTraj, predTraj[i+1, :][None, :]]
+    for _ in range(50):
+        predTraj, reachedGoal, vertex = plan_path_mpnet_bidirection(model, enc, start, goal, device, ValidityCheckerObj.isValid, worldBounds)
         if reachedGoal:
-            validTraj = simplify_path(validTraj, ValidityCheckerObj.isValid)
+            v += vertex
             break
+    validTraj = predTraj[0, :][None, :]
+    for i, pos in enumerate(predTraj[:-1]):
+        if check_edge_collision(pos, predTraj[i+1, :], ValidityCheckerObj.isValid):
+            for _ in range(10):
+                newTraj, success, tmpvertex = plan_path_mpnet_bidirection(model, enc, pos, predTraj[i+1, :], device, ValidityCheckerObj.isValid, worldBounds)
+                v += tmpvertex if success else 0
+            # Check if trajectory is successful, else replan
+            if check_trajectory_collision(newTraj, ValidityCheckerObj.isValid):
+                newTraj, success, tmpvertex = plan_path_rrt(pos, predTraj[i+1, :], space, si)
+                v += tmpvertex if success else 0
+            if success:
+                validTraj = np.r_[validTraj, newTraj[1:, :]]
+        else:
+            validTraj = np.r_[validTraj, predTraj[i+1, :][None, :]]
+    if reachedGoal:
+        validTraj = simplify_path(validTraj, ValidityCheckerObj.isValid)
     planTime = time.time() - startTime
 
     return validTraj, planTime, v, reachedGoal
