@@ -110,6 +110,57 @@ def plan_path_mpnet(model, enc, start, goal, device, collisionFn, worldBounds):
     return scale_state(np.array(normPredTraj)), reachedGoal, vertex
 
 
+def plan_path_mpnet_bidirection(model, enc, start, goal, device, collisionFn, worldBounds):
+    '''
+    Return a path planned in a bi-direction manner.
+    :param model: The NN model used for planning.
+    :param enc: The latent space representation of the map.
+    :param start: A numpy array of size 2 with the normalized start state.
+    :param goal: A numpy array of size 2 with the normalized goal state.
+    :param device: The device used for torch computations.
+    :param collisionFn: A function to check if a state is in collision
+    :returns np.array: A set of scaled trajectories
+    '''
+    goalS = torch.tensor(normalize_state(goal, worldBounds)[None,:], device=device, dtype=torch.float)
+    startS = torch.tensor(normalize_state(start, worldBounds)[None,:], device=device, dtype=torch.float)
+    reachedGoal = False
+    normPredTrajF = [startS.cpu().numpy().squeeze()]
+    normPredTrajB = [goalS.cpu().numpy().squeeze()]
+    normPredTraj = [normalize_state(start, worldBounds), normalize_state(goal, worldBounds)]
+    forward = True
+    vertex = 0
+    for _ in range(10):
+        # Check if we can connect start and goal state
+        if not check_edge_collision(
+            scale_state(startS.cpu().numpy().squeeze()), 
+            scale_state(goalS.cpu().numpy().squeeze()), 
+            collisionFn
+        ):
+            reachedGoal = True
+            break
+        inputs = torch.cat([enc, startS, goalS], dim=1)
+        with torch.no_grad():
+            tempS = model(inputs)
+            temp = tempS.cpu().numpy().squeeze()
+        if collisionFn(scale_state(temp)):
+            vertex += 1
+            if forward:
+                startS = goalS
+                goalS = tempS
+                normPredTrajF.append(temp)
+            else:
+                goalS = startS
+                startS = tempS
+                normPredTrajB.insert(0, temp)
+        # Check if we can connect to the goal or have reached near it
+        if torch.linalg.norm(startS-goalS)*24<0.1:
+            reachedGoal = True
+            break
+    if reachedGoal:
+        normPredTraj = normPredTrajF + normPredTrajB
+    return scale_state(np.array(normPredTraj)), reachedGoal, vertex
+
+
 def plan_path_rrt(start, goal, space, si):
     '''
     Returns a planned path using RRT for given start and goal state.
