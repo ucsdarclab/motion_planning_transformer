@@ -25,7 +25,8 @@ class PositionalEncoding(nn.Module):
         :param train_shape: The 2D shape of the training model.
         '''
         super(PositionalEncoding, self).__init__()
-
+        self.n_pos_sqrt = int(np.sqrt(n_position))
+        self.train_shape = train_shape
         # Not a parameter
         self.register_buffer('hashIndex', self._get_hash_table(n_position))
         self.register_buffer('pos_table', self._get_sinusoid_encoding_table(n_position, d_hid))
@@ -73,12 +74,16 @@ class PositionalEncoding(nn.Module):
         :param x:
         '''
         if conv_shape is None:
-            return x + self.pos_table_train.clone().detach()
+            startH, startW = torch.randint(0, self.n_pos_sqrt-self.train_shape[0], (2,))
+            selectIndex = rearrange(
+                self.hashIndex[startH:startH+self.train_shape[0], startW:startW+self.train_shape[1]],
+                'h w -> (h w)'
+                )
+            return x + torch.index_select(self.pos_table, dim=1, index=selectIndex).clone().detach()
 
         # assert x.shape[0]==1, "Only valid for testing single image sizes"
         selectIndex = rearrange(self.hashIndex[:conv_shape[0], :conv_shape[1]], 'h w -> (h w)')
         return x + torch.index_select(self.pos_table, dim=1, index=selectIndex)
-
 
 
 class Encoder(nn.Module):
