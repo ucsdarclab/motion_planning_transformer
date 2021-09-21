@@ -185,7 +185,7 @@ def plan_path_rrt(start, goal, space, si):
     planner.setProblemDefinition(pdef) 
     planner.setup()
     
-    for _ in range(4):
+    for _ in range(20):
         solved = planner.solve(0.25)
         if pdef.hasExactSolution():
             path = np.array( [[pdef.getSolutionPath().getState(i)[0], pdef.getSolutionPath().getState(i)[1]]
