@@ -1,7 +1,7 @@
 #!/bin/bash
 # A script to run the eval lib multiple times
-SAMPLES=125
-for CID in {0..19}
+SAMPLES=500
+for CID in {0..4}
 do
     docker run \
     -d \
