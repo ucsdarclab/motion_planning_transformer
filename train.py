@@ -214,7 +214,7 @@ if __name__ == "__main__":
         validationData = DataLoader(valDataset, num_workers=5, batch_sampler=batch_sampler_val, collate_fn=PaddedSequence)
     else:        
         trainDataset = PathDataLoader(
-            env_list=list(range(10)),
+            env_list=list(range(1750)),
             dataFolder=osp.join(dataFolder, 'train')
         )
         trainingData = DataLoader(trainDataset, num_workers=15, collate_fn=PaddedSequence, batch_size=batch_size)
