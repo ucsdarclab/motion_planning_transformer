@@ -316,5 +316,5 @@ if __name__=="__main__":
                 pathVertices.append(0)
 
     pathData = {'Time':pathTime, 'Success':pathSuccess, 'Vertices':pathVertices}
-    pickle.dump(pathData, open(osp.join(modelFolder, f'eval_val_plan_mpnet_{start:06d}.p'), 'wb'))
+    pickle.dump(pathData, open(osp.join(modelFolder, f'eval_val_plan_mpnet_forest_{start:06d}.p'), 'wb'))
     print(sum(pathSuccess))
