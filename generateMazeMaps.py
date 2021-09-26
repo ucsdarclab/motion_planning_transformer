@@ -135,10 +135,11 @@ class Maze:
             nv += 1
             
 
-def generate_random_maze(length, wt=0.375, pw=1.2, dist_resl=0.05,seed=1, fileName=None):
+def generate_random_maze(width, height, wt=0.375, pw=1.2, dist_resl=0.05,seed=1, fileName=None):
     '''
     Generate random square mazes
-    :param length: The length of the whole map
+    :param width: The length of the whole map
+    :param heigh: The height of the whole map
     :param wt: The thickness of the wall (in meters)
     :param pw: The width of the passage (in meters)
     :param dist_resl: distance (in meters) per pixels
@@ -147,7 +148,8 @@ def generate_random_maze(length, wt=0.375, pw=1.2, dist_resl=0.05,seed=1, fileNa
     '''
     
     ch = cw = wt*2 + pw
-    nx = ny = int((length-wt)/(pw+wt))
+    nx = int((width-wt)/(pw+wt))
+    ny = int((height-wt)/(pw+wt))
 
     random.seed(seed)
     ix, iy = random.randint(0, nx-1),  random.randint(0, ny-1)
@@ -156,10 +158,11 @@ def generate_random_maze(length, wt=0.375, pw=1.2, dist_resl=0.05,seed=1, fileNa
     maze.make_maze()
 
     # Save map
-    size = length*100/2.54 #In inches
+    sizeW = width*100/2.54 #In inches
+    sizeH = height*100/2.54
     dpi = 0.0254/dist_resl # dots per inches, convert the resolution to inches
 
-    fig, ax = plt.subplots(figsize=(size, size), dpi=dpi)
+    fig, ax = plt.subplots(figsize=(sizeW, sizeH), dpi=dpi)
 
     # NOTE: This is important to ensure that the loaded map, matches the set
     # distance resolution.
@@ -187,8 +190,8 @@ def generate_random_maze(length, wt=0.375, pw=1.2, dist_resl=0.05,seed=1, fileNa
     ax.set_xticks([])
     ax.set_yticks([])
     
-    ax.set_xlim([0, length])
-    ax.set_ylim([0, length])
+    ax.set_xlim([0, width])
+    ax.set_ylim([0, height])
 
     if fileName is None:
         fig.savefig('map_maze_temp.png', pad_inches=0.0, bbox_inches='tight')
