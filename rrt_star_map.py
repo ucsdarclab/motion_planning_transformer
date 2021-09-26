@@ -69,7 +69,7 @@ def get_path(start, goal, ValidityCheckerObj=None):
     while not ss.haveExactSolutionPath():
         solved = ss.solve(2.0)
         time +=3
-        if time>90:
+        if time>240:
             break
     if ss.haveExactSolutionPath():
         success = True
