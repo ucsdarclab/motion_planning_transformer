@@ -232,6 +232,7 @@ if __name__=="__main__":
     parser.add_argument('--epoch', help='Model epoch number to test', required=True, type=int)
     parser.add_argument('--numPaths', help='Number of start and goal pairs for each env', default=1, type=int)
     parser.add_argument('--explore', help='Explore the environment w/o the mask', dest='explore', action='store_true')
+    parser.add_argument('--mapSize', help='The size of the input map', default='')
 
     args = parser.parse_args()
 
