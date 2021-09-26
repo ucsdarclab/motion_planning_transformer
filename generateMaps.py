@@ -18,7 +18,7 @@ def generate_random_maps(
     Randomly generate maps with the given width and height, resolution and
     obstacles.
     :param width: The width of the map in meters.
-    :param breath: TODO.... The height of the map.
+    :param height: The height of the map.
     :param dist_resl: distance(in meters) per pixels
     :param num_circle: Number of circular objects.
     :param num_box: Number of square objects.
