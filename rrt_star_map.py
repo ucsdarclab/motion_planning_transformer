@@ -185,7 +185,7 @@ def start_experiment_rrtrealWorld(start, samples, mapFile, fileDir=None):
         pickle.dump(path_param, open(osp.join(fileDir,f'path_{i}.p'), 'wb'))
 
 
-def start_map_collection_rrt(start, samples, envType, numPaths, fileDir, mapFile):
+def start_map_collection_rrt(start, samples, envType, numPaths, fileDir, mapFile, height, width):
     '''
     Collect a single path for the given number of samples.
     :param start: The start index of the samples.
@@ -194,6 +194,8 @@ def start_map_collection_rrt(start, samples, envType, numPaths, fileDir, mapFile
     :param numPaths: The number of paths to collect for each environment.
     :param fileDir: The directory to save the paths
     :param mapFile: Provide the location of the map file.
+    :param height: The height of the map in pixels
+    :param width: The width of the map in pixels
     '''
     if envType =='realworld':
         assert mapFile is not None, "Need to set a map for planning"
@@ -205,9 +207,9 @@ def start_map_collection_rrt(start, samples, envType, numPaths, fileDir, mapFile
                     os.mkdir(envFileDir)
                 fileName = osp.join(envFileDir, f'map_{i}.png')
                 if envType=='forest':
-                    generate_random_maps(width=length, seed=i+200, fileName=fileName)
+                    generate_random_maps(width=width*0.05, height=height*0.05, seed=1000+i, fileName=fileName, num_circle=100, num_box=100)
                 if envType=='maze':
-                    generate_random_maze(length=length, wt=1, pw=1.875, seed=i, fileName=fileName)
+                    generate_random_maze(width=width*0.05, height=height*0.05, wt=1, pw=1.875, seed=i, fileName=fileName)
 
                 start_experiment_rrt(0, numPaths, fileDir=envFileDir)
 
@@ -219,7 +221,8 @@ if __name__ == "__main__":
     parser.add_argument('--numPaths', help='Number of paths to collect', default=1, type=int)
     parser.add_argument('--fileDir', help='The Folder to save the files', required=True)
     parser.add_argument('--mapFile', help='Need to provide mapFile, if generating data for real world maps')
-
+    parser.add_argument('--height', help='The height of the map in pixels', type=int, default=480)
+    parser.add_argument('--width', help='The width of the map in pixels', type=int, default=480) 
     args = parser.parse_args()
 
-    start_map_collection_rrt(args.start, args.numEnv, args.envType, args.numPaths, args.fileDir, args.mapFile)
+    start_map_collection_rrt(args.start, args.numEnv, args.envType, args.numPaths, args.fileDir, args.mapFile, args.height, args.width)
