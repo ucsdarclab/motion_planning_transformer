@@ -87,7 +87,7 @@ python3 eval_model.py --modelFolder=... --valDataFolder=... --start=... --numEnv
 		</tr>
 		<tr>
 			<td>RRT*</td>
-			<td>99.88%</td>
+			<td>100%</td>
 			<td>5.44</td>
 			<td>3227.5</td>
 			<td>100%</td>
@@ -96,7 +96,7 @@ python3 eval_model.py --modelFolder=... --valDataFolder=... --start=... --numEnv
 		</tr>
 		<tr>
 			<td>IRRT*</td>
-			<td>99.88%</td>
+			<td>100%</td>
 			<td>0.42</td>
 			<td>267</td>
 			<td>100%</td>
@@ -104,22 +104,49 @@ python3 eval_model.py --modelFolder=... --valDataFolder=... --start=... --numEnv
 			<td>1393.5</td>
 		</tr>
 		<tr>
+			<td>UNet-RRT*</td>
+			<td>30.27%</td>
+			<td>0.13</td>
+			<td>168</td>
+			<td>21.4%</td>
+			<td>0.31</td>
+			<td>275.5</td>
+		</tr>
+		<tr>
+			<td>MPNet</td>
+				<td>92.35%</td>
+				<td>0.29</td>
+				<td>634</td>
+				<td>71.76%</td>
+				<td>1.72</td>
+				<td>1408.5</td>
+			</tr>
+		<tr>
 			<td>MPT-RRT*</td>
-			<td>97.68%</td>
-			<td>0.20</td>
-			<td>251</td>
-			<td>98.96%</td>
-			<td>0.83</td>
-			<td>615</td>
+			<td>99.4%</td>
+			<td>0.19</td>
+			<td>233</td>
+			<td>99.16%</td>
+			<td>0.84</td>
+			<td>626</td>
 		</tr>
 		<tr>
 			<td>MPT-IRRT*</td>
-			<td>97.68%</td>
-			<td>0.07</td>
-			<td>133</td>
-			<td>98.96%</td>
-			<td>0.74</td>
-			<td>557</td>
+			<td>99.4%</td>
+			<td>0.08</td>
+			<td>136</td>
+			<td>99.16%</td>
+			<td>0.73</td>
+			<td>566</td>
+		</tr>
+		<tr>
+			<td>MPT-RRT*-EE</td>
+			<td>100%</td>
+			<td>0.2</td>
+			<td>247</td>
+			<td>100%</td>
+			<td>0.82</td>
+			<td>585</td>
 		</tr>
 	</tbody>
 </table>
