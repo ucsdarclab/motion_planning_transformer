@@ -179,8 +179,8 @@ def get_patch(model, start_pos, goal_pos, input_map):
     for pos in possAnchor:
         goal_start_x = max(0, pos[0]- receptive_field//2)
         goal_start_y = max(0, pos[1]- receptive_field//2)
-        goal_end_x = min(map_size[0], pos[0]+ receptive_field//2)
-        goal_end_y = min(map_size[1], pos[1]+ receptive_field//2)
+        goal_end_x = min(map_size[1], pos[0]+ receptive_field//2)
+        goal_end_y = min(map_size[0], pos[1]+ receptive_field//2)
         patch_map[goal_start_y:goal_end_y, goal_start_x:goal_end_x] = 1.0
     return patch_map, predProb
 
@@ -276,7 +276,7 @@ if __name__=="__main__":
                 if args.segmentType =='mpt':
                     # NOTE: THIS IS NEEDS TO BE TESTED!!
                     # NOTE: All earlier data was gathered using hard coded 
-                    patch_map = get_patch(model, start_pos, goal_pos, small_map)
+                    patch_map, _ = get_patch(model, start_pos, goal_pos, small_map)
                 elif args.segmentType == 'unet':
                     patch_map = get_patch_unet(model, start_pos, goal_pos, small_map)
                 
