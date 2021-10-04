@@ -52,18 +52,8 @@ def getHashTable(mapSize):
     H, W = mapSize
     Hhat = np.floor((H-8)/4) - 1
     What = np.floor((W-8)/4) - 1
-    if Hhat%5>0:
-        padH = int(((Hhat//5)+1)*5 - Hhat)
-    else:
-        padH = 0
-
-    if What%5>0:
-        padW = int(((What//5)+1)*5 - What)
-    else:
-        padW = 0
-
-    tokenH = int((Hhat+padH)/5)
-    tokenW = int((What+padW)/5)
+    tokenH = int((Hhat+6)//5)
+    tokenW = int((What+6)//5)
     return [(20*r+4, 20*c+4) for c in range(tokenH) for r in range(tokenW)]
 
 
