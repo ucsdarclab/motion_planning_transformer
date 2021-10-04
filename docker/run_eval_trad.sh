@@ -1,6 +1,6 @@
 #!/bin/bash
 # A script to run the eval lib multiple times
-SAMPLES=100
+SAMPLES=40
 for CID in {0..24}
 do
     docker run \
@@ -14,6 +14,6 @@ do
     --plannerType=informedrrtstar \
     --start=$((CID*SAMPLES)) \
     --samples=$SAMPLES \
-    --valDataFolder=/root/data/forest/val \
+    --valDataFolder=/root/data/maze4/val780\
     --numPaths=1
 done
