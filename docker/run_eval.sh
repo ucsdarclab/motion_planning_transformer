@@ -1,7 +1,7 @@
 #!/bin/bash
 # A script to run the eval lib multiple times
-SAMPLES=125
-for CID in {0..20}
+SAMPLES=500
+for CID in {0..4}
 do
     docker run \
     -d \
@@ -11,12 +11,13 @@ do
     -v /home/jacoblab/global_planner_data:/root/data \
     pytorch/pytorch:1.7.1-cuda11.0-cudnn8-jupyter-ompl\
     python3 eval_model.py \
-    --segmentType=unet \
-    --modelFolder=/root/data/unet/model0 \
+    --segmentType=mpt \
+    --modelFolder=/root/data/model42 \
     --plannerType=rrtstar \
     --start=$((CID*SAMPLES)) \
-    --samples=$SAMPLES\
+    --numEnv=$SAMPLES\
     --valDataFolder=/root/data/forest/val \
-    --epoch=69\
-    --numPaths=1
+    --epoch=149\
+    --numPaths=1\
+    --explore
 done
