@@ -310,7 +310,7 @@ if __name__=="__main__":
 
     pathData = {'Time':pathTime, 'Success':pathSuccess, 'Vertices':pathVertices}
     if args.explore:
-        fileName = osp.join(modelFolder, f'eval_val_plan_exp_{args.segmentType}_{args.plannerType}_{start:06d}.p')
+        fileName = osp.join(modelFolder, f'eval_val{args.mapSize}_plan_exp_{args.segmentType}_{args.plannerType}_{start:06d}.p')
     else:
-        fileName = osp.join(modelFolder, f'eval_val_plan_{args.segmentType}_{args.plannerType}_{start:06d}.p')
+        fileName = osp.join(modelFolder, f'eval_val{args.mapSize}_plan_{args.segmentType}_{args.plannerType}_{start:06d}.p')
     pickle.dump(pathData, open(fileName, 'wb'))
