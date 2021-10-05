@@ -64,7 +64,7 @@ space.setBounds(bounds)
 cspace = oc.RealVectorControlSpace(space, 2)
 cbounds = ob.RealVectorBounds(2)
 cbounds.setLow(0, 0.0)
-cbounds.setHigh(0, .3)
+cbounds.setHigh(0, 1)
 cbounds.setLow(1, -.5)
 cbounds.setHigh(1, .5)
 cspace.setBounds(cbounds)
@@ -93,7 +93,7 @@ class ValidityChecker(ob.StateValidityChecker):
         self.size = CurMap.shape
         # Dilate image for collision checking
         InvertMap = np.abs(1-CurMap)
-        InvertMapDilate = skim.dilation(InvertMap, skim.disk((robot_radius+0.1)/res))
+        InvertMapDilate = skim.dilation(InvertMap, skim.disk((0.1)/res))
         MapDilate = abs(1-InvertMapDilate)
         if MapMask is None:
             self.MaskMapDilate = MapDilate>0.5
@@ -112,26 +112,29 @@ class ValidityChecker(ob.StateValidityChecker):
             return False
         return self.MaskMapDilate[pix_dim[1], pix_dim[0]]
 
-def get_path_sst(start, goal, input_map, patch_map):
-    '''
-    Plan a path using SST, but invert the start and goal location.
-    :param start: The starting position on map co-ordinates.
-    :param goal: The goal position on the map co-ordinates.
-    :param input_map: The input map 
-    :param patch_map: The patch map
-    :returns 
-    '''
-    success, time, _, path = get_path(start, goal, input_map, patch_map, use_valid_sampler=True)
-    return path, time, [], success
+# def get_path_sst(start, goal, input_map, patch_map):
+#     '''
+#     Plan a path using SST, but invert the start and goal location.
+#     :param start: The starting position on map co-ordinates.
+#     :param goal: The goal position on the map co-ordinates.
+#     :param input_map: The input map 
+#     :param patch_map: The patch map
+#     :returns 
+#     '''
+#     success, time, _, path = get_path(start, goal, input_map, patch_map, use_valid_sampler=True)
+#     return path, time, [], success
 
 
-def get_path(start, goal, input_map, patch_map, step_time=0.1, max_time=300, use_valid_sampler=False):
+def get_path(start, goal, input_map, patch_map, step_time=0.1, max_time=300, exp=False):
     '''
     Plan a path given the start, goal and patch_map.
-    :param start: 
-    :param goal:
-    :param patch_map:
-    returns bool: Returns True if a path was planned successfully.
+    :param start: The SE(2) co-ordinate of start position
+    :param goal: The SE(2) co-ordinate of goal position
+    :param patch_map: The patch map from MPT
+    :param step_time: The time step for the planner.
+    :param max_time: The maximum time to plan
+    :param exp: If true, the planner switches between exploration and exploitation.
+    returns tuple: Returns path array, time of solution, number of vertices, success.
     '''
     # Tried importance sampling, but seems like it makes not much improvement 
     # over rejection sampling.
@@ -151,42 +154,9 @@ def get_path(start, goal, input_map, patch_map, step_time=0.1, max_time=300, use
     ss = oc.SimpleSetup(cspace)
     # setup validity checker
     ValidityCheckerObj = ValidityChecker(si, input_map, patch_map)
-    def isStateValid(spaceInformation, state):
-        return spaceInformation.satisfiesBounds(state) and ValidityCheckerObj.isValid(state)
-    
-    class MyValidStateSampler(ob.ValidStateSampler):
-     def __init__(self, si):
-        super(MyValidStateSampler, self).__init__(si)
-        self.name_ = "my sampler"
-        self.rng_ = ou.RNG()
-        self.size = input_map.shape
-        # Dilate image for collision checking
-        InvertMap = np.abs(1-input_map)
-        InvertMapDilate = skim.dilation(InvertMap, skim.disk((robot_radius+0.1)/res))
-        MapDilate = abs(1-InvertMapDilate)
-        if patch_map is None:
-            self.MaskMapDilate = MapDilate>0.5
-        else:
-            self.MaskMapDilate = np.logical_and(MapDilate, patch_map)
-    
-     def sample(self, state):
-        x, y = self.rng_.uniformReal(0, 24), self.rng_.uniformReal(0, 24)
-        pix_dim = geom2pix([x, y], size=self.size)
-        while pix_dim[0] < 0 or pix_dim[0] >= self.size[0] or pix_dim[1] < 0 or pix_dim[1] >= self.size[1] or self.MaskMapDilate[pix_dim[1], pix_dim[0]] > 0.5:
-            x, y = self.rng_.uniformReal(0, 24), self.rng_.uniformReal(0, 24)
-            pix_dim = geom2pix([x, y], size=self.size)
-        state().setX(x)
-        state().setY(y)
-        state().setYaw(rng_.uniformReal(-pi, pi))
-        return True
-    
-    def allocMyValidStateSampler(si):
-        return MyValidStateSampler(si)
-    if patch_map is not None and use_valid_sampler:
-        si.setValidStateSamplerAllocator(ob.ValidStateSamplerAllocator(allocMyValidStateSampler))
+    NewValidityCheckerObj = ValidityChecker(si, input_map)
 
-    validityChecker = ob.StateValidityCheckerFn(partial(isStateValid, ss.getSpaceInformation()))
-    ss.setStateValidityChecker(validityChecker)
+    ss.setStateValidityChecker(ValidityCheckerObj)
     
     # Set the start and goal States:
     ss.setStartAndGoalStates(StartState, GoalState, 1.0)
@@ -196,14 +166,23 @@ def get_path(start, goal, input_map, patch_map, step_time=0.1, max_time=300, use
     propagator = oc.ODESolver.getStatePropagator(odeSolver)
     ss.setStatePropagator(propagator)
     ss.getSpaceInformation().setPropagationStepSize(0.1)
-    ss.getSpaceInformation().setMinMaxControlDuration(1, 50)
+#     ss.getSpaceInformation().setMinMaxControlDuration(1, 10)
 
     planner = oc.SST(ss.getSpaceInformation())
 
     ss.setPlanner(planner)
 
     time = step_time
-    solved = ss.solve(time)
+    if exp:
+        solved = ss.solve(time)
+        while not ss.haveExactSolutionPath():
+            solved = ss.solve(step_time)
+            time += step_time
+            if time>2:
+                break
+        ss.setStateValidityChecker(NewValidityCheckerObj)        
+
+    solved = ss.solve(step_time)
     while not ss.haveExactSolutionPath():
         solved = ss.solve(step_time)
         time += step_time
@@ -221,7 +200,12 @@ def get_path(start, goal, input_map, patch_map, step_time=0.1, max_time=300, use
     else:
         success = False
         path_quality = np.inf
-    return success, time, path_quality, path
+        path = []
+    plannerData = ob.PlannerData(si)
+    planner.getPlannerData(plannerData)
+    numVertices = plannerData.numVertices()
+    
+    return path, time, numVertices, success
 
 device='cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -259,9 +243,12 @@ device='cuda' if torch.cuda.is_available() else 'cpu'
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--modelFolder', help='Directory where model_params.json exists', required=True)
-    # parser.add_argument('--envNum', help='Environment number to validate model', required=True)
-    parser.add_argument('--start')
-    parser.add_argument('--use_sst')
+    parser.add_argument('--valDataFolder', help='Directory where training data exists', required=True)
+    parser.add_argument('--start', help='Start of environment number', required=True, type=int)
+    parser.add_argument('--numEnv', help='Number of environments', required=True, type=int)
+    parser.add_argument('--numPaths', help='Number of start and goal pairs for each env', default=1, type=int)
+    parser.add_argument('--use_sst', help='Use only SST without mask', dest='use_sst', action='store_true')
+    parser.add_argument('--explore', help='Use only SST without mask', dest='explore', action='store_true')
 
     args = parser.parse_args()
 
@@ -270,8 +257,10 @@ if __name__=="__main__":
     assert osp.isfile(modelFile), f"Cannot find the model_params.json file in {modelFolder}"
 
     # env_num = args.envNum
-    start = int(args.start)
+    start = args.start
     use_sst = args.use_sst
+    valDataFolder = args.valDataFolder
+
     if not use_sst:
         model_param = json.load(open(modelFile))
         transformer = Models.Transformer(
@@ -289,36 +278,33 @@ if __name__=="__main__":
         # Only do evaluation
         transformer.eval()
     # Get path data
-    PathSuccess = []
-    TimeSuccess = []
-    QualitySuccess = []
+    pathSuccess = []
+    pathTime = []
+    pathVertices = []
 
-    result_folder = '/data/results/car-mp-sst_vs' if not use_sst else '/data/results/car-sst'
-    Path(result_folder).mkdir(parents=True, exist_ok=True)
-
-    for env_num in range(start, start+10):
-        temp_map =  f'/data/train2_car/env{env_num:06d}/map_{env_num}.png'
+    for env_num in range(start, start+args.numEnv):
+        temp_map = osp.join(valDataFolder, f'env{env_num:06d}/map_{env_num}.png')
         small_map = skimage.io.imread(temp_map, as_gray=True)
 
-        for pathNum in range(10):
+        for pathNum in range(args.numPaths):
             print(f"planning on env_{env_num} path_{pathNum}")
-        # pathNum = 0
-            pathFile = f'/data/train2_car/env{env_num:06d}/path_{pathNum}.p'
+            pathFile = osp.join(valDataFolder, f'env{env_num:06d}/path_{pathNum}.p')
             data = pickle.load(open(pathFile, 'rb'))
             path = data['path_interpolated']
 
             if data['success']:
                 if not use_sst:
-                    goal_pos = geom2pix(path[0, :])
-                    start_pos = geom2pix(path[-1, :])
+                    goal_pos = geom2pix(path[-1, :])
+                    start_pos = geom2pix(path[0, :])
 
                     # Identitfy Anchor points
                     encoder_input = get_encoder_input(small_map, goal_pos, start_pos)
                     # predVal = transformer(encoder_input[None,:].float().cuda())
                     with torch.no_grad():
-                        predVal, embeddings = transformer(encoder_input[None,:].float().cuda())
+                        predVal = transformer(encoder_input[None,:].float().cuda())
                     predProb = F.softmax(predVal[0, :, :], dim=1)
-                    predClass = (predProb[:, 1] / (predProb[:, 1]+predProb[:, 0]) > 0.4) # predClass = predVal[0, :, :].max(1)[1]
+
+                    predClass = predVal[0, :, :].max(1)[1]
                     possAnchor = [hashTable[i] for i, label in enumerate(predClass) if label==1]
 
                     # Generate Patch Maps
@@ -330,18 +316,29 @@ if __name__=="__main__":
                         goal_end_x = min(map_size[0], pos[0]+ receptive_field//2)
                         goal_end_y = min(map_size[1], pos[1]+ receptive_field//2)
                         patch_map[goal_start_y:goal_end_y, goal_start_x:goal_end_x] = 1.0
-                    success, time, quality, planned_path = get_path(path[0, :], path[-1, :], small_map, patch_map, max_time=300, use_valid_sampler=True)
+                    _, time, numVer, success = get_path(path[0, :], path[-1, :], small_map, patch_map.T, max_time=90, exp=args.explore)
 
                 else:
-                    success, time, quality, planned_path = get_path(path[0, :], path[-1, :], small_map, patch_map=None, max_time=300)
+                    _, time, numVer, success = get_path(path[0, :], path[-1, :], small_map, patch_map=None, max_time=150)
                 
-                if success:
-                    PathSuccess.append(planned_path)
-                    TimeSuccess.append(time)
-                    QualitySuccess.append(quality)
-
-                    np.save(f'{result_folder}/PathSuccess_{start}.npy', PathSuccess)
-                    np.save(f'{result_folder}/TimeSuccess_{start}.npy', TimeSuccess)
-                    np.save(f'{result_folder}/QualitySuccess{start}.npy', QualitySuccess)
+                pathSuccess.append(success)
+                pathTime.append(time)
+                pathVertices.append(numVer)
+            else:
+                pathSuccess.append(False)
+                pathTime.append(time)
+                pathVertices.append(numVer)
+                    # np.save(f'{result_folder}/PathSuccess_{start}.npy', PathSuccess)
+                    # np.save(f'{result_folder}/TimeSuccess_{start}.npy', TimeSuccess)
+                    # np.save(f'{result_folder}/QualitySuccess{start}.npy', QualitySuccess)
     # pickle.dump(PathSuccess, open(osp.join(modelFolder, f'eval_unknown_plan_{start:06d}.p'), 'wb'))
-    print(len(PathSuccess))
+    pathData = {'Time': pathTime, 'Success': pathSuccess, 'Vertices': pathVertices}
+    if use_sst:
+        fileName = osp.join(modelFolder, f'eval_val_plan_sst_{start:06d}.p')
+    else:
+        if args.explore:
+            fileName = osp.join(modelFolder, f'eval_val_plan_exp_mpt_sst_{start:06d}.p')
+        else:
+            fileName = osp.join(modelFolder, f'eval_val_plan_mpt_sst_{start:06d}.p')
+    pickle.dump(pathData, open(fileName, 'wb'))
+    print(len(pathSuccess))
