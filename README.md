@@ -54,7 +54,7 @@ python3 train.py --batchSize=... --mazeDir=... --forestDir=... --fileDir=...
 ```
 
 ### Pre-trained Models
-You can download the pretrained models for the point robot and Dubins Car Model from [here](https://drive.google.com/file/d/1kd-n9NyybQueJbL1ud4Bf6PhK99gLhkT/view?usp=sharing) and [here](). We have included models at multiple epochs, all our results use the model at the 69th epoch.
+You can download the pretrained models for the point robot and Dubins Car Model from [here](https://drive.google.com/file/d/1kVWNmjN1OAg5i5M3fzSbBQ0pSwpU8CU5/view?usp=sharing).
 
 ### Evaluation
 
