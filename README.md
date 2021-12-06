@@ -25,7 +25,7 @@ docker load -i mpt_container.tar
 To run the container, run the following command:
 
 ```
-docker run -it --gpus all --shm-size="16G" -v ~/global_planner_data:/root/data bash
+docker run -it --gpus all --shm-size="16G" -v ~/global_planner_data:/root/data -v <link-to-code-base>:/workspace bash
 ```
 
 You can run the script in `docker/ompl_torch_docker.sh`. Attach the folder containing the data to `/root/data` and the folder with the code to `/workspace`.
