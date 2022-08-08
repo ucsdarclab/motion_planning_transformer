@@ -11,6 +11,8 @@ from transformer.Layers import EncoderLayer, DecoderLayer
 from einops.layers.torch import Rearrange
 from einops import rearrange
 
+from typing import Optional
+
 # TODO: A better way to do this would be maintain the position encoding in the form of 
 # 3D tensor, and add it to the output of the convolution, rather than doing all the
 
@@ -65,24 +67,33 @@ class PositionalEncoding(nn.Module):
         :param n_position: The maximum number of positions on the table.
         :param train_shape: The 2D dimension of the training maps.
         '''
-        selectIndex = rearrange(self.hashIndex[:train_shape[0], :train_shape[1]], 'h w -> (h w)')
+        preArranged = self.hashIndex[:train_shape[0], :train_shape[1]]
+        #WORKS
+        selectIndex = preArranged.reshape(-1)
+        #selectIndex = rearrange(self.hashIndex[:train_shape[0], :train_shape[1]], 'h w -> (h w)')
         return torch.index_select(self.pos_table, dim=1, index=selectIndex)
 
-    def forward(self, x, conv_shape=None):
+    def forward(self, x):
         '''
         Callback function
         :param x:
         '''
-        if conv_shape is None:
-            startH, startW = torch.randint(0, self.n_pos_sqrt-self.train_shape[0], (2,))
-            selectIndex = rearrange(
-                self.hashIndex[startH:startH+self.train_shape[0], startW:startW+self.train_shape[1]],
-                'h w -> (h w)'
-                )
-            return x + torch.index_select(self.pos_table, dim=1, index=selectIndex).clone().detach()
+        # if conv_shape is None:
+        #     startH, startW = torch.randint(0, self.n_pos_sqrt-self.train_shape[0], (2,))
+        #     preArranged = self.hashIndex[startH:startH+self.train_shape[0], startW:startW+self.train_shape[1]]
+        #     selectIndex = preArranged.reshape(-1)
+        #     # selectIndex = rearrange(
+        #     #     self.hashIndex[startH:startH+self.train_shape[0], startW:startW+self.train_shape[1]],
+        #     #     'h w -> (h w)'
+        #     #     )
+        #     return x + torch.index_select(self.pos_table, dim=1, index=selectIndex).clone().detach()
 
         # assert x.shape[0]==1, "Only valid for testing single image sizes"
-        selectIndex = rearrange(self.hashIndex[:conv_shape[0], :conv_shape[1]], 'h w -> (h w)')
+        
+        preArranged = self.hashIndex[:self.train_shape[0], :self.train_shape[1]]
+        #WORKS
+        selectIndex = preArranged.reshape(-1)
+        # selectIndex = rearrange(self.hashIndex[:conv_shape[0], :conv_shape[1]], 'h w -> (h w)')
         return x + torch.index_select(self.pos_table, dim=1, index=selectIndex)
 
 
@@ -123,7 +134,7 @@ class Encoder(nn.Module):
             nn.Conv2d(16, d_model, kernel_size=5, stride=5, padding=3)
         )
 
-        self.reorder_dims = Rearrange('b c h w -> b (h w) c')
+        #self.reorder_dims = Rearrange('b c h w -> b (h w) c')
         # Position Encoding.
         # NOTE: Current setup for adding position encoding after patch Embedding.
         self.position_enc = PositionalEncoding(d_model, n_position=n_position, train_shape=train_shape)
@@ -137,7 +148,7 @@ class Encoder(nn.Module):
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         
 
-    def forward(self, input_map, returns_attns=False):
+    def forward(self, input_map):
         '''
         The input of the Encoder should be of dim (b, c, h, w).
         :param input_map: The input map for planning.
@@ -146,22 +157,26 @@ class Encoder(nn.Module):
         enc_slf_attn_list = []
         enc_output = self.to_patch_embedding(input_map)
         conv_map_shape = enc_output.shape[-2:]
-        enc_output = self.reorder_dims(enc_output)
-
-        if self.training:
-            enc_output = self.position_enc(enc_output)
-        else:
-            enc_output = self.position_enc(enc_output, conv_map_shape)
+        #enc_output = self.reorder_dims(enc_output)
+        enc_output_shape = enc_output.shape
+        # TESTED
+        enc_output = enc_output.view(enc_output_shape[0],  enc_output_shape[1],
+         enc_output_shape[2]*enc_output_shape[3]).transpose(1,2)
+        enc_output = self.position_enc(enc_output)
+        # if self.training:
+        #     enc_output = self.position_enc(enc_output)
+        # else:
+        #     enc_output = self.position_enc(enc_output, conv_map_shape)
     
         enc_output = self.dropout(enc_output)
         enc_output = self.layer_norm(enc_output)
 
         for enc_layer in self.layer_stack:
-            enc_output = enc_layer(enc_output, slf_attn_mask=None)
+            enc_output = enc_layer(enc_output)
         
-        if returns_attns:
-            return enc_output, enc_slf_attn_list
-        return enc_output, 
+        # if returns_attns:
+        #     return enc_output, enc_slf_attn_list
+        return enc_output 
 
 
 class Decoder(nn.Module):
@@ -265,9 +280,10 @@ class Transformer(nn.Module):
 
         # Last linear layer for prediction
         self.classPred = nn.Sequential(
-            Rearrange('b c d_model -> (b c) d_model 1 1'),
+            #Rearrange('b c d_model -> (b c) d_model 1 1'),
+            nn.Identity(),
             nn.Conv2d(512, 2, kernel_size=1),
-            Rearrange('bc d 1 1 -> bc d')
+            #Rearrange('bc d 1 1 -> bc d')
         )
 
 
@@ -279,7 +295,12 @@ class Transformer(nn.Module):
         :param start: A 2D torch array representing the start.
         :param cur_index: The current anchor point of patch.
         '''
-        enc_output, *_ = self.encoder(input_map)
+        enc_output = self.encoder(input_map)
+        enc_output = enc_output.view(enc_output.size(0)*enc_output.size(1), enc_output.size(2), 1, 1)
         seq_logit = self.classPred(enc_output)
         batch_size = input_map.shape[0]
-        return rearrange(seq_logit, '(b c) d -> b c d', b=batch_size)
+
+        output = seq_logit.view(batch_size, -1, 2)
+        
+        #return rearrange(seq_logit, '(b c) d -> b c d', b=batch_size)
+        return output

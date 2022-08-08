@@ -26,22 +26,22 @@ class EncoderLayer(nn.Module):
         self.slf_attn = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout)
         self.pos_ffn = PositionwiseFeedForward(d_model, d_inner, dropout=dropout)
 
-    def forward(self, enc_input, slf_attn_mask=None):
+    def forward(self, enc_input):
         '''
         The forward module:
         :param enc_input: The input to the encoder.
         :param slf_attn_mask: TODO ......
         '''
-        # # Without gradient Checking
-        # enc_output = self.slf_attn(
-        #     enc_input, enc_input, enc_input, mask=slf_attn_mask)
+         # Without gradient Checking
+        enc_output = self.slf_attn(
+            enc_input, enc_input, enc_input)
 
         # With Gradient Checking
-        enc_output = torch.utils.checkpoint.checkpoint(self.slf_attn, 
-        enc_input, enc_input, enc_input, slf_attn_mask)
+        #enc_output = torch.utils.checkpoint.checkpoint(self.slf_attn, 
+        #enc_input, enc_input, enc_input, slf_attn_mask)
 
         # enc_output, enc_slf_attn = self.slf_attn(
-        #     enc_input, enc_input, enc_input, mask=slf_attn_mask)
+        #     enc_input, enc_input, enc_input)
 
         enc_output = self.pos_ffn(enc_output)
         return enc_output

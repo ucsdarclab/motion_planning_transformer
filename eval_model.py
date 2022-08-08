@@ -172,7 +172,7 @@ def get_patch(model, start_pos, goal_pos, input_map):
 
     predProb = F.softmax(predVal[0, :, :], dim=1)
     possAnchor = [hashTable[i] for i, label in enumerate(predClass) if label==1]
-
+    
     # Generate Patch Maps
     patch_map = np.zeros_like(input_map)
     map_size = input_map.shape

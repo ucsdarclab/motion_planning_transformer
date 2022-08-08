@@ -21,7 +21,7 @@ class ScaledDotProductAttention(nn.Module):
         self.temperature = temperature
         self.dropout = nn.Dropout(attn_dropout)
 
-    def forward(self, q, k, v, mask=None):
+    def forward(self, q, k, v):
         '''
         Callback Function:
         :param q: The Query matrix.
@@ -32,8 +32,8 @@ class ScaledDotProductAttention(nn.Module):
         '''
         attn = torch.matmul(q / self.temperature, k.transpose(2, 3))
 
-        if mask is not None:
-            attn = attn.masked_fill(mask == 0, -1e9)
+        # if mask is not None:
+        #     attn = attn.masked_fill(mask == 0, -1e9)
 
         attn = self.dropout(F.softmax(attn, dim=-1))
         output = torch.matmul(attn, v)
@@ -70,7 +70,7 @@ class MultiHeadAttention(nn.Module):
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
 
-    def forward(self, q, k, v, mask=None):
+    def forward(self, q, k, v):
         '''
         Callback function.
         :param q: The Query matrix.
@@ -94,10 +94,10 @@ class MultiHeadAttention(nn.Module):
         # Transpose for attention dot product: b x n x lq x dv
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
 
-        if mask is not None:
-            mask = mask.unsqueeze(1)   # For head axis broadcasting.
+        # if mask is not None:
+        #     mask = mask.unsqueeze(1)   # For head axis broadcasting.
 
-        q = self.attention(q, k, v, mask=mask)
+        q = self.attention(q, k, v)
 
         # Transpose to move the head dimension back: b x lq x n x dv
         # Combine the last two dimensions to concatenate all the heads together: b x lq x (n*dv)

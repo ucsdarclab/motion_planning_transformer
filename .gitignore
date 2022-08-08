@@ -6,6 +6,7 @@ vision_transformer/**
 vit-pytorch/**
 pytorch-receptive-field/**
 torch_receptive_field/**
+test_script/**
 
 # Jupyter notebooks
 .ipynb_checkpoints/**
